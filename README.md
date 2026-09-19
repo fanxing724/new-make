@@ -42,17 +42,21 @@
 npm install -g wrangler
 wrangler login
 wrangler secret put GITHUB_TOKEN   # 可选但强烈建议
-wrangler deploy                    # 部署，得到 https://github-cards.<子域>.workers.dev
+wrangler deploy                    # 部署，得到 https://new-make.<子域>.workers.dev
 ```
 
 配置在 `wrangler.toml`。Workers 免费额度（10 万次/天）比 Deno Deploy 更宽裕。
+
+也可以在 Cloudflare Dashboard 用 **Workers & Pages → Import from GitHub** 绑定本仓库：
+读取 `wrangler.toml` 后每次 push 自动部署；`GITHUB_TOKEN` 在
+**Settings → Variables and Secrets** 里以 Secret 类型添加。
 
 ## 📝 在 README 中使用
 
 ### 统计卡片
 
 ```markdown
-![GitHub 统计](https://你的域名.deno.dev/stats?username=你的用户名)
+![GitHub 统计](https://github.xingbox.de5.net/stats?username=你的用户名)
 ```
 
 参数：
@@ -70,7 +74,7 @@ wrangler deploy                    # 部署，得到 https://github-cards.<子�
 ### 编程语言卡片
 
 ```markdown
-![编程语言](https://你的域名.deno.dev/languages?username=你的用户名&theme=catppuccin&layout=pie)
+![编程语言](https://github.xingbox.de5.net/languages?username=你的用户名&theme=catppuccin&layout=pie)
 ```
 
 参数：
@@ -87,7 +91,7 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 ### 活跃度卡片
 
 ```markdown
-![最近活跃](https://你的域名.deno.dev/activity?username=你的用户名&theme=catppuccin)
+![最近活跃](https://github.xingbox.de5.net/activity?username=你的用户名&theme=catppuccin)
 ```
 
 统计基于最近 100 条公开事件（GitHub 事件接口最多保留 90 天）。
@@ -95,7 +99,7 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 ### 精选仓库卡片
 
 ```markdown
-![精选仓库](https://你的域名.deno.dev/repos?username=你的用户名&theme=catppuccin&count=4)
+![精选仓库](https://github.xingbox.de5.net/repos?username=你的用户名&theme=catppuccin&count=4)
 ```
 
 参数：
@@ -125,12 +129,12 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 
 ```markdown
 <div align="center">
-  <img src="https://你的域名.deno.dev/stats?username=你的用户名&theme=catppuccin&show_icons=true" />
-  <img src="https://你的域名.deno.dev/languages?username=你的用户名&theme=catppuccin&layout=pie" />
+  <img src="https://github.xingbox.de5.net/stats?username=你的用户名&theme=catppuccin&show_icons=true" />
+  <img src="https://github.xingbox.de5.net/languages?username=你的用户名&theme=catppuccin&layout=pie" />
   <br/>
-  <img src="https://你的域名.deno.dev/activity?username=你的用户名&theme=catppuccin" />
+  <img src="https://github.xingbox.de5.net/activity?username=你的用户名&theme=catppuccin" />
   <br/>
-  <img src="https://你的域名.deno.dev/repos?username=你的用户名&theme=catppuccin&count=4" />
+  <img src="https://github.xingbox.de5.net/repos?username=你的用户名&theme=catppuccin&count=4" />
 </div>
 ```
 
