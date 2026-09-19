@@ -1,0 +1,5 @@
+name = "github-cards"
+main = "worker.ts"
+compatibility_date = "2025-01-01"
+
+# GITHUB_TOKEN 不要写在这里，用 `wrangler secret put GITHUB_TOKEN` 配置
