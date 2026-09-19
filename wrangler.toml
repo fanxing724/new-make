@@ -1,4 +1,4 @@
-name = "github-cards"
+name = "new-make"
 main = "worker.ts"
 compatibility_date = "2025-01-01"
 
