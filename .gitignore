@@ -1,1 +1,4 @@
-platforms/
+# 构建产物由 node tools/build.mjs 生成;EdgeOne Pages 按"仓库根=站点根"识别,
+# 所以函数目录必须留在仓库根 —— 这里刻意**不**忽略它。
+node_modules/
+*.log

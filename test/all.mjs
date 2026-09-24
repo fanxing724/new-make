@@ -67,8 +67,8 @@ console.log("核心层 deno_index.ts");
 }
 
 // 必须解码:URL.pathname 会把中文目录写成 %E4%B8%8B…,existsSync 就不认识了
-const EO = fileURLToPath(new URL("../platforms/edgeone/functions/", import.meta.url));
-console.log("EdgeOne 产物 platforms/edgeone/functions/*.js");
+const EO = fileURLToPath(new URL("../functions/", import.meta.url));
+console.log("EdgeOne 函数 functions/*.js");
 if (!existsSync(EO)) {
   console.log("  skip 还没生成,先跑 node tools/build.mjs");
 } else {

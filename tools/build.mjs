@@ -15,8 +15,9 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// 生成物输出到仓库根的 functions/ —— EdgeOne Pages 按"仓库根=站点根"识别边缘函数目录,
+// 放子目录就只在手动 ZIP 上传时可用,GitHub 连接自动部署会找不到路由。
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "platforms");
 const ENTRY = "deno_index.ts";
 
 // 相对 import(含跨行的多行写法),捕获组给依赖图用
@@ -119,8 +120,8 @@ const BANNER =
 const EDGEONE_ROUTES = ["index", "stats", "languages", "activity", "repos"];
 
 function buildEdgeOne(core) {
-  const dir = join(OUT, "edgeone", "functions");
-  rmSync(join(OUT, "edgeone"), { recursive: true, force: true });
+  const dir = join(ROOT, "functions");
+  rmSync(dir, { recursive: true, force: true });
 
   const route = `${BANNER}
 ${core}
@@ -182,4 +183,4 @@ export default onRequest;
 
 const files = [...buildEdgeOne(inlineCore())];
 console.log(files.map((f) => "  " + f).join("\n"));
-console.log(`共 ${files.length} 个文件 → platforms/edgeone/`);
+console.log(`共 ${files.length} 个文件 → functions/ (EdgeOne Pages 的函数目录)`);

@@ -60,30 +60,37 @@ wrangler deploy                    # 部署，得到 https://new-make.<子域>.w
 | Deno Deploy | `deno_index.ts`（末尾自带本地启动块） | 项目环境变量 |
 | Cloudflare Workers / Pages | `worker.ts` | `wrangler secret put` |
 | Node（本机长挂） | `node_server.mjs` | 进程环境变量 |
-| EdgeOne Pages | `platforms/edgeone/`（**生成物**） | 控制台 Variables |
+| EdgeOne Pages | `functions/`（**生成物**） | 控制台变量 |
 
 EdgeOne 产物是内联生成的：`functions/` 能否 import 目录外的文件这个行为还没在线上证实，所以生成的每个路由文件自带全部逻辑、一个 import 都不剩，不依赖那个未知项。
 
 ```bash
-node tools/build.mjs   # cards/ + deno_index.ts → platforms/edgeone/functions/*.js
-node test/all.mjs      # 核心层 + 每条产物路由 + 配置探针，一把过
+node tools/build.mjs   # cards/ + deno_index.ts → functions/*.js
+node test/all.mjs      # 核心层 + 每条函数路由 + 配置探针，一把过
 ```
 
-改完源码要重跑 `build`；`platforms/` 下的文件不要手改，会被覆盖。上传 EdgeOne 时把 `platforms/edgeone/` 的**目录内容**当项目根（`functions/` 在顶层）。
+`functions/` 是生成物但**故意入库**：EdgeOne Pages 关联 GitHub 后按"仓库根 = 站点根"找函数目录，放子目录就只能手动传 ZIP。改完源码重跑 `build`，别手改里面的文件。
 
-EdgeOne 上线（走控制台上传 ZIP，本机 CLI 被 DNS 污染挡住）：
+> 这个目录名和 Cloudflare Pages 撞车（它也认根 `functions/`）。本项目走 CF 是用 `worker.ts` 的 Workers 模式，不受影响；哪天真改用 CF Pages，先把目录挪走。
 
-```bash
-node tools/build.mjs && (cd platforms/edgeone && zip -rq ../edgeone.zip .)
-```
-
-然后在 Pages 项目里选「纯静态」框架上传 `platforms/edgeone.zip`，控制台变量里加 `GITHUB_TOKEN`（Secret 类型），最后：
+上线：控制台 → EdgeOne Pages → 新建项目 → 关联本仓库，框架选纯静态、输出目录留空；变量里加 `GITHUB_TOKEN`。然后：
 
 ```bash
 curl https://你的域名/health    # 看 config.GITHUB_TOKEN 是不是 true
 ```
 
-`/health` 返回 HTML 或 404 说明 `functions/` 没被识别；返回 JSON 但 `config.GITHUB_TOKEN:false` 说明变量没读到。这条路由是探针，只回布尔和变量名，不会泄密钥。
+`/health` 返回 HTML 或 404 说明 `functions/` 没被识别；返回 JSON 但 `config.GITHUB_TOKEN:false` 说明变量没读到。这条路由是探针，只回布尔和变量名，不泄密钥。
+
+上线后第一件事是验边缘缓存到底听不听函数的 `Cache-Control` —— 这决定你的 GitHub 额度会不会被烧穿：
+
+```bash
+curl -sI https://你的域名/stats?username=你的用户名 | grep -iE 'cache-control|age|x-cache'
+sleep 5; curl -sI https://你的域名/stats?username=你的用户名 | grep -iE 'cache-control|age|x-cache'
+```
+
+两次都拿到 `age` 在涨、或出现 HIT 类头，说明边缘在挡；一直 `age: 0` 就是每次刷新都回源打 GitHub，这时再用 `edgeone.json` 的 header 规则强压一条 `cache-control`。
+
+仓库根**没有也不需要** `edgeone.json`：函数路由靠 `functions/` 目录约定就生效了。那个文件用来配构建命令、redirect/rewrite、以及给响应强制加 header —— 只有实测发现边缘不遵守函数自己的 `Cache-Control` 时，才需要用它补一条。
 
 ## 📝 在 README 中使用
 
