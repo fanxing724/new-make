@@ -5,6 +5,11 @@
 node_modules/
 *.log
 
+# render.mjs 的产物:由 Actions 渲染、经 Pages artifact 发布,不走 git。
+# 提交它等于把"流水线会重建的东西"变成第二份真源,两边一旦漂移就没人知道该信谁。
+dist-cards/
+.test-cards/
+
 # 站点根会被整仓当静态资源发布,密钥文件一旦被请求就是明文外泄。
 # GITHUB_TOKEN 只允许待在平台变量里:EdgeOne 控制台 / wrangler secret / 进程环境。
 .env

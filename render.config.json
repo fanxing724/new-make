@@ -1,0 +1,10 @@
+{
+  "usernames": ["fanxing724"],
+  "output": "dist-cards",
+  "cards": {
+    "stats": { "theme": "default", "show_icons": "true" },
+    "languages": { "theme": "default", "layout": "bar" },
+    "activity": { "theme": "default" },
+    "repos": { "theme": "default", "count": "6", "sort": "updated" }
+  }
+}

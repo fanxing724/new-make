@@ -1,8 +1,15 @@
 # GitHub Cards 🃏
 
-基于 Deno Deploy 的 GitHub Profile 动态 SVG 卡片生成器。
+GitHub Profile 动态 SVG 卡片生成器。
 
 让你的 GitHub 主页 README 动起来！部署后只需在 README 里引用图片链接，卡片内容会自动更新。
+
+两种形态，同一个数据层：
+
+| 形态 | 谁在跑 | 适合 |
+|------|--------|------|
+| **预渲染**（推荐） | GitHub Actions 定时跑，产物是静态 `.svg` | 公开自用，任何人访问都不消耗你的额度 |
+| **按需服务** | 一个常驻/边缘函数，请求来了现算 | 要给任意用户名出图 |
 
 ## ✨ 功能
 
@@ -12,7 +19,77 @@
 - 📦 **精选仓库卡片** — 双列展示你的仓库列表
 - 🎨 **6 种主题** — default、light、dracula、nord、monokai、catppuccin
 
-## 🚀 部署
+## 🥇 主路线：GitHub Actions 预渲染
+
+把"每次有人看主页就打一次 GitHub API"换成"每小时打一次，成品摊成静态文件"。
+
+```
+render.config.json  要渲染谁、每张卡什么参数
+tools/render.mjs    调 handler() 出 SVG → dist-cards/
+render.yml          每小时渲染 → Pages 发布
+```
+
+引用地址变成静态文件：
+
+```markdown
+![GitHub 统计](https://<你的用户名>.github.io/<仓库名>/<用户名>/stats.svg)
+```
+
+四张卡分别是 `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg`。
+
+### 为什么不走按需服务
+
+按需服务的缓存救不了额度。`username` 只校验**格式**不校验存在性，于是
+`?username=` 后面跟一串随机字符就是每次都回源 —— **缓存键是请求方说了算的**，
+`s-maxage` 再长也挡不住。而个人主页的图是经由 `camo.githubusercontent.com`
+来抓的，全场访客在 GitHub 眼里共用那么几个出口 IP，按 IP 限流也是一戳就破。
+上一版挂在 Deno 上就是这么被刷空的。
+
+预渲染直接把"访客数"和"API 调用数"解耦：一千人看主页，GitHub API 一次都不多打。
+
+### 上线（三步，第二步不做必挂）
+
+1. Fork 本仓库，`render.config.json` 里的 `usernames` 改成你自己的。
+2. 仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**。
+   默认是 "Deploy from a branch"，不改的话 `actions/deploy-pages` 会直接失败。
+   这是唯一一步控制台操作，没有密钥要配。
+3. 手动跑一次 **Actions → render-cards → Run workflow** 确认绿灯。之后每逢整点自动重渲。
+
+令牌用的是 Actions 自带的 `secrets.GITHUB_TOKEN`：临时签发、用完自动作废、
+额度独立于匿名 60 次/小时。**仓库里、你的账号下都不存在长期密钥**，这也是这条
+路线比托管函数更稳妥的原因之一。
+
+### 两条不能动的规则
+
+- **别删 `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`** —— 删了就退化成匿名 60 次/小时，
+  而一张语言卡要按仓库逐个请求，名单里两三个账号就能把额度吃穿。
+- **一次失败，整批不发布** —— 渲染脚本认出限流、用户不存在等错误卡片（它们的 HTTP
+  状态码同样是 200，只有 `⚠️` 标记能认出）时 `exit 1`，Actions 走不到发布那一步，
+  线上保持上一版好图。宁可在主页上挂一张三小时前的旧卡片，也不要挂一张
+  `⚠️ 已触发 GitHub 限流` —— 红卡进了 CDN 会一直挂到下次成功。
+
+推论：**名单里打错一个用户名，所有人的卡片都会停止更新**（Actions 会红，不会静默）。
+这是有意的 —— 半套新旧混杂的产物比一套旧的更难查。加完人先本地跑一次
+`node tools/render.mjs`，或看 Actions 是否绿，再合进去。
+
+不想等定时任务就能验证这条：`node test/all.mjs` 里"限流时退出码非 0 / 限流时不产出
+任何文件 / 报错点名具体卡片"三条检查，用的是一个假上游。
+
+### 加一个人 = 一行
+
+`render.config.json` 的 `usernames` 数组里加个名字，提个 PR。merge 后自动重渲，
+之后每小时跟着更新。参数（主题、语言条还是环、仓库展示几个）也在这个文件里，
+不用碰代码。
+
+代价说清楚：**只能渲染这个名单里的用户名**。这正是它便宜的原因 —— 别人不能拿你的
+流水线去给他自己出图。要开放给任意用户名，看下面的按需路线。
+
+## 🚀 备选：Deno Deploy
+
+> [!WARNING]
+> 这条路已经被验证过会被刷穿额度（见上一节）。只有当你确实需要"给任意用户名出图"、
+> 并且愿意为此配一个带额度的 token 时才走。
+
 
 ### 1. Fork 本项目
 
@@ -34,7 +111,12 @@
 匿名调用 GitHub API 只有 **60 次/小时** 额度，而语言卡片单次渲染要请求每个仓库的
 语言接口，很容易触发限流。配置 Token 后额度提升到 5000 次/小时。
 
-## ☁️ 部署到 Cloudflare Workers（备选）
+## ☁️ 备选：Cloudflare Workers
+
+> 和 Deno Deploy 一样是按需出图，因此同样受"缓存键由请求方决定"的约束。
+> 换平台不解决问题：稀缺的是 **GitHub API 额度**，不是托管方的请求数 ——
+> Workers 白送 10 万次/天，可匿名打 GitHub 只有 60 次/小时，多出来的算力没东西可算。
+
 
 `handler` 是纯 Web Fetch API，Workers 入口见 `worker.ts`（只做调用形状转换）。
 
@@ -55,12 +137,16 @@ wrangler deploy                    # 部署，得到 https://new-make.<子域>.w
 
 `cards/` + `deno_index.ts` 是唯一真源，平台差异全部收在薄入口里（只做密钥注入和调用形状转换，不含业务逻辑）：
 
-| 平台 | 入口 | GITHUB_TOKEN 怎么给 |
-|------|------|--------------------|
-| Deno Deploy | `deno_index.ts`（末尾自带本地启动块） | 项目环境变量 |
-| Cloudflare Workers / Pages | `worker.ts` | `wrangler secret put` |
-| Node（本机长挂） | `node_server.mjs` | 进程环境变量 |
-| EdgeOne Makers | `edge-functions/`（**生成物**） | 控制台变量 |
+| 形态 | 平台 | 入口 | GITHUB_TOKEN 怎么给 |
+|------|------|------|--------------------|
+| **预渲染** | GitHub Pages | `tools/render.mjs` + `render.yml` | Actions 自带的临时 `secrets.GITHUB_TOKEN`，不用配 |
+| 按需 | Deno Deploy | `deno_index.ts`（末尾自带本地启动块） | 项目环境变量 |
+| 按需 | Cloudflare Workers / Pages | `worker.ts` | `wrangler secret put` |
+| 按需 | Node（本机长挂） | `node_server.mjs` | 进程环境变量 |
+| 按需 | EdgeOne Makers | `edge-functions/`（**生成物**） | 控制台变量 |
+
+按需那一排里，`handler` 一份、四个壳；预渲染那一行复用同一个 `handler`，只是把
+"请求驱动"换成"定时驱动"。所以五条路出的图字节级一致。
 
 EdgeOne 产物是内联生成的：函数目录能否 import 目录外的文件这个行为还没在线上证实，所以生成的每个路由文件自带全部逻辑、一个 import 都不剩，不依赖那个未知项。
 
@@ -123,6 +209,12 @@ new-make/
 ├─ deno_index.ts          真源 · 路由表 + handler(req, env?, basePath?) + 首页
 ├─ cards/                 真源 · GitHub 数据层、6 套主题、4 张卡的 SVG 拼装
 │  └─ env.ts              跨平台配置读取的唯一入口，别处不许摸 Deno.env / process.env
+├─ render.config.json     预渲染名单：渲染谁、每张卡什么参数
+├─ tools/render.mjs       真源 → dist-cards/（调 handler，不另写一套出图逻辑）
+├─ dist-cards/            【生成物·不入库】Actions 经 Pages artifact 发布，别提交
+├─ .github/workflows/
+│  ├─ render.yml          每小时渲染 + 发布到 GitHub Pages
+│  └─ ci.yml              重新 build，产物过期或检查失败就红
 ├─ edge-functions/        【生成物】EdgeOne 边缘函数，每个文件自带全部逻辑、零 import
 ├─ worker.ts              Cloudflare Workers 入口
 ├─ wrangler.toml          Cloudflare 配置
@@ -130,18 +222,29 @@ new-make/
 ├─ deno.json              Deno task 与 fmt 配置
 ├─ edgeone.json           EdgeOne Makers 项目描述
 ├─ tools/build.mjs        真源 → edge-functions/
-├─ test/all.mjs           核心层 + 每条函数路由 + 探针 + env 优先级
-└─ .github/workflows/     CI：重新 build，产物过期或检查失败就红
+└─ test/all.mjs           核心层 + 每条函数路由 + 探针 + env 优先级 + 渲染脚本
 ```
 
 记法：**只有 `cards/` 和 `deno_index.ts` 需要动手**，其余是入口、产物和保险带。
+`tools/render.mjs` 走的是同一条 `handler()`，所以预渲染和按需服务出的图永远一致。
 
 ## 📝 在 README 中使用
+
+**预渲染路线**（推荐）：地址是静态文件，参数不在 URL 里，而在 `render.config.json`
+的 `cards` 对象里。
+
+```markdown
+![GitHub 统计](https://<你的用户名>.github.io/<仓库名>/<你的用户名>/stats.svg)
+```
+
+**按需路线**：地址取决于你部署在哪，下面统一写成 `<你的服务地址>`。参数就是各卡
+URL 后面的 query，和 `render.config.json` 里的字段一一对应（少个 `username`，那边
+在 `usernames` 名单里）。
 
 ### 统计卡片
 
 ```markdown
-![GitHub 统计](https://github.xingbox.de5.net/stats?username=你的用户名)
+![GitHub 统计](<你的服务地址>/stats?username=你的用户名)
 ```
 
 参数：
@@ -159,7 +262,7 @@ new-make/
 ### 编程语言卡片
 
 ```markdown
-![编程语言](https://github.xingbox.de5.net/languages?username=你的用户名&theme=catppuccin&layout=pie)
+![编程语言](<你的服务地址>/languages?username=你的用户名&theme=catppuccin&layout=pie)
 ```
 
 参数：
@@ -176,7 +279,7 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 ### 活跃度卡片
 
 ```markdown
-![最近活跃](https://github.xingbox.de5.net/activity?username=你的用户名&theme=catppuccin)
+![最近活跃](<你的服务地址>/activity?username=你的用户名&theme=catppuccin)
 ```
 
 统计基于最近 100 条公开事件（GitHub 事件接口最多保留 90 天）。
@@ -184,7 +287,7 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 ### 精选仓库卡片
 
 ```markdown
-![精选仓库](https://github.xingbox.de5.net/repos?username=你的用户名&theme=catppuccin&count=4)
+![精选仓库](<你的服务地址>/repos?username=你的用户名&theme=catppuccin&count=4)
 ```
 
 参数：
@@ -214,21 +317,29 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 
 ```markdown
 <div align="center">
-  <img src="https://github.xingbox.de5.net/stats?username=你的用户名&theme=catppuccin&show_icons=true" />
-  <img src="https://github.xingbox.de5.net/languages?username=你的用户名&theme=catppuccin&layout=pie" />
+  <img src="<你的服务地址>/stats?username=你的用户名&theme=catppuccin&show_icons=true" />
+  <img src="<你的服务地址>/languages?username=你的用户名&theme=catppuccin&layout=pie" />
   <br/>
-  <img src="https://github.xingbox.de5.net/activity?username=你的用户名&theme=catppuccin" />
+  <img src="<你的服务地址>/activity?username=你的用户名&theme=catppuccin" />
   <br/>
-  <img src="https://github.xingbox.de5.net/repos?username=你的用户名&theme=catppuccin&count=4" />
+  <img src="<你的服务地址>/repos?username=你的用户名&theme=catppuccin&count=4" />
 </div>
 ```
 
 ##  缓存行为
 
+**预渲染路线**没有"缓存"这个概念，只有"多久更新一次"：图是静态文件，GitHub Pages
+自己带 CDN，看一万次也不回源打 GitHub。新鲜度看 `https://<你的用户名>.github.io/<仓库名>/`
+这个自检页 —— 四张卡摆一页，顶上写着"上次成功渲染 <时间>"。它落后太多，说明定时任务在失败。
+（卡片本身不带时间戳，只有自检页和 `status.json` 带。）
+
+**按需路线**的缓存头：
+
 - 成功渲染的卡片：`Cache-Control: public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400`
 - 服务内部对 GitHub API 的响应另有 5 分钟进程内缓存，相同请求会合并，不会重复消耗额度
 - 上一条只在常驻进程（Deno Deploy / Node）里成立：Workers、EdgeOne 这类隔离运行时的实例随时回收，进程内缓存命中是运气不是保证，真正挡住额度的是那条 `s-maxage`，其次是平台自己的边缘缓存
 - 错误卡片（用户不存在、限流等）：`no-store`，恢复后立刻自愈，不会在 README 里挂一小时
+- 但 `s-maxage` 挡不住故意绕缓存的请求，因为缓存键里的 `username` 由请求方给定。这条路线上真正的上限是 GitHub 的 token 额度（认证 5000 次/小时），不是缓存时长
 
 ## 🔧 本地开发
 
@@ -248,5 +359,6 @@ deno task fmt            # 格式化
 ```bash
 GITHUB_TOKEN=xxx node node_server.mjs   # → http://127.0.0.1:8787/
 node tools/build.mjs                    # 生成 EdgeOne 产物
-node test/all.mjs                       # 核心层 + 产物 + 探针
+node tools/render.mjs                   # 预渲染到 dist-cards/，打开 dist-cards/index.html 看
+node test/all.mjs                       # 核心层 + 产物 + 探针 + 渲染脚本
 ```

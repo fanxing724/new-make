@@ -5,10 +5,21 @@
 // 不需要 Deno、不需要构建。真实出网只打一次 /stats(验证 happy path),
 // 其余断言都走不依赖网络的分支 —— 匿名 GitHub 额度只有 60 次/小时,别浪费。
 
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { setGitHubToken } from "../cards/github.ts";
 import { handler, indexPage } from "../deno_index.ts";
+
+// 必须解码:URL.pathname 会把中文目录写成 %E4%B8%8B…,拼出来的路径 spawn 出去找不到
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 let pass = 0;
 let skipped = 0;
@@ -157,6 +168,78 @@ console.log("env 读取层");
     threw = true;
   }
   check("requireEnv 缺配置时抛错", threw);
+}
+
+// tools/render.mjs 是 Actions 里真正跑的那条链路,而 CI 打不起真实 GitHub 调用,
+// 所以用 test/fake-github.mjs 当假上游,把成功路径和"限流时绝不产出红卡"各验一遍。
+console.log("预渲染 tools/render.mjs (假上游)");
+{
+  const preload = pathToFileURL(join(ROOT, "test/fake-github.mjs")).href;
+  const cfgPath = join(ROOT, ".render.test.json");
+  const outName = ".test-cards";
+  writeFileSync(
+    cfgPath,
+    JSON.stringify({
+      usernames: ["fanxing724"],
+      output: outName,
+      cards: {
+        stats: { theme: "default", show_icons: "true" },
+        languages: { theme: "default", layout: "bar" },
+        activity: { theme: "default" },
+        repos: { theme: "default", count: "6" },
+      },
+    }),
+  );
+  const outDir = join(ROOT, outName);
+
+  const run = (mode) => {
+    try {
+      const stdout = execFileSync(
+        process.execPath,
+        ["--import", preload, join(ROOT, "tools/render.mjs"), "--config", cfgPath],
+        {
+          env: { ...process.env, FAKE_MODE: mode, GITHUB_TOKEN: "fake-token" },
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      return { code: 0, stdout };
+    } catch (e) {
+      // 失败报告走 stderr(脚本故意这么分),断言要合并两路才看得见
+      return { code: e.status ?? -1, stdout: `${e.stdout || ""}${e.stderr || ""}` };
+    }
+  };
+
+  rmSync(outDir, { recursive: true, force: true });
+  const ok = run("normal");
+  check("成功渲染退出码 0", ok.code === 0, ok.stdout.slice(-200));
+  check(
+    "产物含 4 张卡",
+    ["stats", "languages", "activity", "repos"].every((c) =>
+      existsSync(join(outDir, "fanxing724", `${c}.svg`)),
+    ),
+  );
+  const rendered = existsSync(join(outDir, "fanxing724/stats.svg"))
+    ? readFileSync(join(outDir, "fanxing724/stats.svg"), "utf8")
+    : "";
+  check("渲染出的卡片不含错误标记", rendered.includes("<svg") && !rendered.includes(ERR_MARK));
+  check("自检页与 status.json 齐备", existsSync(join(outDir, "index.html")) && existsSync(join(outDir, "status.json")));
+
+  // 这条是整套预渲染的安全带:限流时 handler 返回的仍是 200 + <svg> + ⚠️,
+  // 让它进 CDN 就等于把红卡挂到下次成功为止,比不更新糟糕得多。
+  rmSync(outDir, { recursive: true, force: true });
+  const limited = run("ratelimit");
+  check("限流时退出码非 0", limited.code !== 0, `实得 ${limited.code}`);
+  check("限流时不产出任何文件", !existsSync(outDir));
+  check(
+    "限流时报错点名了具体卡片",
+    limited.stdout.includes("错误卡片"),
+    limited.stdout.slice(-200),
+  );
+
+  rmSync(outDir, { recursive: true, force: true });
+  rmSync(join(ROOT, `${outName}.staging`), { recursive: true, force: true });
+  unlinkSync(cfgPath);
 }
 
 console.log(

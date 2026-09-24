@@ -1,0 +1,61 @@
+name: render-cards
+
+# 预渲染卡片 → GitHub Pages。这条链路刻意不经过任何"按请求回源"的服务:
+# 访客只从 Pages 拿静态文件,一次 API 都不消耗,所以不存在被枚举盗刷的可能。
+#
+# 令牌用的是 Actions 每次运行自带的临时 GITHUB_TOKEN,跑完即失效 ——
+# 全程没有任何长期密钥需要保管,也没有平台控制台可配。
+on:
+  schedule:
+    # 整点跑。个人主页的统计不会比一次提交更实时,小时级足够;
+    # 想更勤就改成 */30 * * * *(注意 GitHub 的 cron 在高负载时会延迟)。
+    - cron: "0 * * * *"
+  # 改源码或改清单立刻重渲染,不用等下一个整点验证效果
+  push:
+    branches: [main]
+    paths:
+      - "cards/**"
+      - "deno_index.ts"
+      - "tools/render.mjs"
+      - "render.config.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pages 部署不并发:两次同时跑会互相覆盖
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node >= 23.6 才默认直接跑 .ts(handler 的源文件是 TypeScript)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 渲染卡片
+        run: node tools/render.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 上一失败时 render.mjs 已 exit 1,这里不会执行 —— 线上保持上一版好图,
+      # 而不是把限流红卡发布出去缓存几小时。这是整套设计里最重要的一步。
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-cards
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
