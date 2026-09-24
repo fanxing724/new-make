@@ -107,22 +107,51 @@ export function startCard(
   subtitle: string,
   gradientId: string,
 ): string[] {
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${
-      escapeXml(title)
-    }">`,
-    `  <defs>`,
+  const defs = [
     `    <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">`,
     `      <stop offset="0" stop-color="${theme.accent}" stop-opacity="0.14"/>`,
     `      <stop offset="1" stop-color="${theme.purple}" stop-opacity="0.05"/>`,
     `    </linearGradient>`,
-    `  </defs>`,
-    `  <rect width="${width}" height="${height}" rx="12" fill="${theme.card}" stroke="${theme.border}" stroke-width="1"/>`,
+  ];
+  const body = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${
+      escapeXml(title)
+    }">`,
+    `  <defs>`,
+    ...defs,
+  ];
+
+  if (theme.art) {
+    const { src, dim, dimLeft } = theme.art;
+    body.push(
+      `    <clipPath id="art-${gradientId}"><rect width="${width}" height="${height}" rx="12"/></clipPath>`,
+      `    <linearGradient id="scrim-${gradientId}" x1="0%" y1="0%" x2="100%" y2="0%">`,
+      `      <stop offset="0" stop-color="${theme.bg}" stop-opacity="${dimLeft}"/>`,
+      `      <stop offset="0.55" stop-color="${theme.bg}" stop-opacity="${dim}"/>`,
+      `      <stop offset="1" stop-color="${theme.bg}" stop-opacity="${(dim * 0.75).toFixed(2)}"/>`,
+      `    </linearGradient>`,
+      `  </defs>`,
+      // slice = 等比缩放到铺满再裁掉溢出,绝不拉伸变形(那需要 preserveAspectRatio="none")
+      `  <image href="${src}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" clip-path="url(#art-${gradientId})"/>`,
+      `  <rect width="${width}" height="${height}" rx="12" fill="${theme.bg}" fill-opacity="${dim}"/>`,
+      `  <rect width="${width}" height="${height}" rx="12" fill="url(#scrim-${gradientId})"/>`,
+      // 卡片底色让位给插画,只留描边定形;圆角靠描边自己走,不靠遮罩
+      `  <rect width="${width}" height="${height}" rx="12" fill="none" stroke="${theme.border}" stroke-width="1"/>`,
+    );
+  } else {
+    body.push(
+      `  </defs>`,
+      `  <rect width="${width}" height="${height}" rx="12" fill="${theme.card}" stroke="${theme.border}" stroke-width="1"/>`,
+    );
+  }
+
+  body.push(
     `  <rect width="${width}" height="${height}" rx="12" fill="url(#${gradientId})"/>`,
     `  <rect x="20" y="19" width="4" height="17" rx="2" fill="${theme.accent}"/>`,
     textEl(32, 33, title, { size: 16, weight: 700, fill: theme.title }),
     textEl(32, 51, subtitle, { size: 12, fill: theme.text }),
-  ];
+  );
+  return body;
 }
 
 export function finishCard(lines: string[]): string {

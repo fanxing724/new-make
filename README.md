@@ -17,7 +17,7 @@ GitHub Profile 动态 SVG 卡片生成器。
 - 🔤 **编程语言卡片** — 可视化你的代码语言分布（圆环图/条形图）
 - ⚡ **活跃度卡片** — 最近事件统计 + 最近 3 条动态
 - 📦 **精选仓库卡片** — 双列展示你的仓库列表
-- 🎨 **6 种主题** — default、light、dracula、nord、monokai、catppuccin
+- 🎨 **7 种主题** — default、light、dracula、nord、monokai、catppuccin，外加一个插画背景主题 `starlight`
 
 ## 🥇 主路线：GitHub Actions 预渲染
 
@@ -227,10 +227,12 @@ edgeone makers generate-routes   # 只校验 edgeone.json + 生成路由表，�
 ```
 new-make/
 ├─ deno_index.ts          真源 · 路由表 + handler(req, env?, basePath?) + 首页
-├─ cards/                 真源 · GitHub 数据层、6 套主题、4 张卡的 SVG 拼装
+├─ cards/                 真源 · GitHub 数据层、7 套主题、4 张卡的 SVG 拼装
+│  ├─ art.ts              【生成物】插画 base64，换图跑 tools/art.mjs，别手改
 │  └─ env.ts              跨平台配置读取的唯一入口，别处不许摸 Deno.env / process.env
 ├─ render.config.json     预渲染名单：渲染谁、每张卡什么参数
 ├─ tools/render.mjs       真源 → dist-cards/（调 handler，不另写一套出图逻辑）
+├─ tools/art.mjs          图片 → cards/art.ts（base64 内联，见「插画背景主题」）
 ├─ dist-cards/            【生成物·不入库】Actions 经 Pages artifact 发布，别提交
 ├─ .github/workflows/
 │  ├─ render.yml          每小时渲染 + 发布到 GitHub Pages
@@ -330,6 +332,43 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 | `nord` | 北欧蓝 |
 | `monokai` | 高对比度 |
 | `catppuccin` | 暖色猫猫风格 |
+| `starlight` | 插画背景，见下节 |
+
+## 🌌 插画背景主题
+
+`starlight` 是唯一的"带图"主题：卡片底色让位给一张插画，上面盖两层压暗，前景文字才站得住。
+
+换图只要一条命令：
+
+```bash
+node tools/art.mjs /path/to/图.webp starlight   # 重新生成 cards/art.ts
+```
+
+`cards/art.ts` 是**生成物**，别手改；`cards/theme.ts` 里的主题用 `art: ARTS.starlight`
+认领其中一张。注意这条命令是**整文件重写**，一次只产出一张图 —— 想要第二个插画主题，
+先想清楚值不值那 36 KB，再手工往 `ARTS` 里加一条。
+
+三条硬约束，都是踩出来的：
+
+- **必须 base64 内联。** 卡片最终是别人 README 里的一张 `<img>`，SVG 在这种语境下算
+  "图像文档"，浏览器禁止它加载任何外部资源 —— 写 `href="https://…"` 只会得到一块空白。
+  代价是体积：base64 比原图大 33%，四张暗卡从 24 KB 涨到 164 KB。
+- **只裁不拉伸。** 用 `preserveAspectRatio="xMidYMid slice"`：按**同一个**系数等比放大到
+  铺满卡片，再裁掉溢出。想让图变形得写 `"none"`，那是 bug。各卡实际保留的取景范围：
+
+  | 卡片 | 尺寸 | 缩放 | 裁掉 |
+  |------|------|------|------|
+  | `stats` | 450×210 | 0.750× | 上下各 28 px |
+  | `languages` | 400×220 | 0.667× | 上下各 3 px |
+  | `activity` | 400×226 | 0.671× | 左右各 2 px |
+  | `repos` | 630×182 | 1.050× | 上下各 82 px |
+
+  原图 600×337，`repos` 最扁，只留 51% 面积 —— 所以**人物重心必须在原图竖直方向的中段**，
+  贴顶或贴底会被裁掉。想换构图就改 `common.ts` 里 `slice` 前面的 `xMidYMid`（`YMin`/`YMax`）。
+- **别指望动画。** README 的 `<img>` 不执行 SVG 动画，GIF 塞进 `<image>` 也只显示第一帧。
+
+压暗程度在 `ARTS` 的 `dim`（整幅平铺）/ `dimLeft`（左端额外压暗，因为标题和数值都在左边）
+里调，改完重跑 `node tools/render.mjs` 直接看效果。
 
 ## 🖼️ 组合示例
 

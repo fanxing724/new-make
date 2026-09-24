@@ -170,6 +170,58 @@ console.log("env 读取层");
   check("requireEnv 缺配置时抛错", threw);
 }
 
+// 插画背景:base64 内联后每张卡都带着它,体积和"哪些主题该带图"必须锁住。
+// 纯静态断言,不联网。
+console.log("插画背景 cards/art.ts");
+{
+  const { THEMES } = await import("../cards/theme.ts");
+  const { ARTS } = await import("../cards/art.ts");
+  const { startCard } = await import("../cards/common.ts");
+
+  const skeleton = (name) =>
+    startCard(THEMES[name], 450, 210, "T", "S", name).join("\n");
+
+  const art = skeleton("starlight");
+  check(
+    "starlight 内联插画",
+    art.includes('<image href="data:image/webp;base64,'),
+    art.slice(0, 200),
+  );
+  // 用户明确要求:可以裁,但不能拉伸变形。"none" 才会变形,必须挡住。
+  check(
+    "starlight 等比裁剪而非拉伸",
+    art.includes('preserveAspectRatio="xMidYMid slice"') &&
+      !art.includes('preserveAspectRatio="none"'),
+  );
+  check("starlight 插画被圆角裁切", art.includes("<clipPath") && art.includes('clip-path="url(#'));
+  check(
+    "starlight 无实心底板(露出插画)",
+    !art.includes(`fill="${THEMES.starlight.card}" stroke=`),
+  );
+
+  for (const name of ["default", "catppuccin", "light"]) {
+    check(`${name} 不含 <image>`, !skeleton(name).includes("<image"));
+  }
+
+  for (const [name, theme] of Object.entries(THEMES)) {
+    if (theme.art) {
+      check(
+        `${name} 引用的插画存在`,
+        Object.values(ARTS).includes(theme.art),
+      );
+    }
+  }
+
+  // 一张 4K png 能轻松把卡片顶到几百 KB,README 里四张图就是几 MB。
+  // 上限按当前用量(35 KB)留足三倍余量,超了就是有人塞了大图。
+  const bytes = Buffer.byteLength(JSON.stringify(ARTS), "utf8");
+  check(
+    "插画内联总量在预算内",
+    bytes < 150 * 1024,
+    `实得 ${(bytes / 1024).toFixed(1)} KB`,
+  );
+}
+
 // tools/render.mjs 是 Actions 里真正跑的那条链路,而 CI 打不起真实 GitHub 调用,
 // 所以用 test/fake-github.mjs 当假上游,把成功路径和"限流时绝不产出红卡"各验一遍。
 console.log("预渲染 tools/render.mjs (假上游)");
