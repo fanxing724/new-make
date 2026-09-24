@@ -222,6 +222,26 @@ console.log("插画背景 cards/art.ts");
   );
 }
 
+// repos 格子只有 300px,但 truncate 的上限一度写成 84"字数" —— 中文按 2 单位算,
+// 84 单位 ≈ 504px,描述直接压到隔壁格子上。fitUnits 把字数换算回像素,这条锁住换算本身。
+console.log("文字不溢出格子 fitUnits");
+{
+  const { fitUnits, displayWidth, truncate } = await import("../cards/common.ts");
+  const CELL = 300, PAD = 15, SIZE = 12;
+  const avail = CELL - PAD * 2;
+  const lim = fitUnits(avail, SIZE);
+  check("上限换算不超出可用宽度", lim * SIZE * 0.5 <= avail, `${lim} 单位 ≈ ${lim * 6}px > ${avail}px`);
+  check("旧的 84 确实会溢出", 84 * SIZE * 0.5 > avail, "若这条失败说明换算系数变了,重新核对");
+
+  const LONG = "基于多平台（github actions edgeone cloudflare）的github统计卡片仓库";
+  const cut = truncate(LONG, lim);
+  check("长描述被截断", displayWidth(cut) <= lim, `实得 ${displayWidth(cut)} 单位`);
+  check("截断带省略号", cut.endsWith("…"));
+  check("短描述原样保留", truncate("主页", lim) === "主页");
+  // 极端:一个字符都放不下时也不能退化成空串或负数上限
+  check("格子极窄时仍有下限", fitUnits(2, 40) >= 4, `实得 ${fitUnits(2, 40)}`);
+}
+
 // tools/render.mjs 是 Actions 里真正跑的那条链路,而 CI 打不起真实 GitHub 调用,
 // 所以用 test/fake-github.mjs 当假上游,把成功路径和"限流时绝不产出红卡"各验一遍。
 console.log("预渲染 tools/render.mjs (假上游)");

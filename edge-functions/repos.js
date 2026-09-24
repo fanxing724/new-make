@@ -80,6 +80,19 @@ function truncate(value        , maxUnits        )         {
   return out + "…";
 }
 
+/**
+ * 给定可用宽度和字号,算 displayWidth 上限。
+ *
+ * truncate 收的是"字数",但卡片格子是像素宽的 —— 之前直接写 84 这种常数,
+ * 结果 300px 的格子里塞进约 500px 的文字,描述串到隔壁格子。这里按字形宽度反推:
+ * displayWidth 把 CJK 记 2、拉丁记 1,正好对应"CJK 全角=1em、拉丁约半角=0.5em",
+ * 所以 1 个单位 ≈ 0.5em ≈ size/2 像素。取 0.5 而不是更小的系数是故意留余量,
+ * 西文粗体和数字偏宽,宁可少一个字也不要溢出。
+ */
+function fitUnits(px        , size        )         {
+  return Math.max(4, Math.floor(px / (size * 0.5)));
+}
+
                        
                 
                 
@@ -897,8 +910,9 @@ async function renderReposCard(
     const x = PAD + (i % COLS) * (CARD_W + GAP_X);
     const y = CELL_Y0 + Math.floor(i / COLS) * (CARD_H + GAP_Y);
 
+    // 格子内可用宽度:300 减去左右各 15 的留白
     const desc = repo.description?.trim()
-      ? truncate(repo.description.trim(), 84)
+      ? truncate(repo.description.trim(), fitUnits(CARD_W - 30, 12))
       : "暂无描述";
     const lang = repo.language ?? "未知";
 
@@ -906,7 +920,7 @@ async function renderReposCard(
       `  <rect x="${x}" y="${y}" width="${CARD_W}" height="${CARD_H}" rx="10" fill="${theme.bg}" fill-opacity="0.5" stroke="${theme.border}" stroke-opacity="0.7"/>`,
     );
     lines.push(
-      textEl(x + 15, y + 26, truncate(repo.name, 66), {
+      textEl(x + 15, y + 26, truncate(repo.name, fitUnits(CARD_W - 30, 14)), {
         size: 14,
         weight: 600,
         fill: theme.accent,

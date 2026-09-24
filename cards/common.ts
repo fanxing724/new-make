@@ -77,6 +77,19 @@ export function truncate(value: string, maxUnits: number): string {
   return out + "…";
 }
 
+/**
+ * 给定可用宽度和字号,算 displayWidth 上限。
+ *
+ * truncate 收的是"字数",但卡片格子是像素宽的 —— 之前直接写 84 这种常数,
+ * 结果 300px 的格子里塞进约 500px 的文字,描述串到隔壁格子。这里按字形宽度反推:
+ * displayWidth 把 CJK 记 2、拉丁记 1,正好对应"CJK 全角=1em、拉丁约半角=0.5em",
+ * 所以 1 个单位 ≈ 0.5em ≈ size/2 像素。取 0.5 而不是更小的系数是故意留余量,
+ * 西文粗体和数字偏宽,宁可少一个字也不要溢出。
+ */
+export function fitUnits(px: number, size: number): number {
+  return Math.max(4, Math.floor(px / (size * 0.5)));
+}
+
 interface TextOptions {
   size?: number;
   fill?: string;

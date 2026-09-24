@@ -1,6 +1,14 @@
 // 仓库卡片 - 双列展示精选仓库
 
-import { CardError, finishCard, langColor, startCard, textEl, truncate } from "./common.ts";
+import {
+  CardError,
+  fitUnits,
+  finishCard,
+  langColor,
+  startCard,
+  textEl,
+  truncate,
+} from "./common.ts";
 import { fetchOwnRepos, fetchRepo } from "./github.ts";
 import type { Theme } from "./theme.ts";
 import type { GitHubRepo } from "./types.ts";
@@ -66,8 +74,9 @@ export async function renderReposCard(
     const x = PAD + (i % COLS) * (CARD_W + GAP_X);
     const y = CELL_Y0 + Math.floor(i / COLS) * (CARD_H + GAP_Y);
 
+    // 格子内可用宽度:300 减去左右各 15 的留白
     const desc = repo.description?.trim()
-      ? truncate(repo.description.trim(), 84)
+      ? truncate(repo.description.trim(), fitUnits(CARD_W - 30, 12))
       : "暂无描述";
     const lang = repo.language ?? "未知";
 
@@ -75,7 +84,7 @@ export async function renderReposCard(
       `  <rect x="${x}" y="${y}" width="${CARD_W}" height="${CARD_H}" rx="10" fill="${theme.bg}" fill-opacity="0.5" stroke="${theme.border}" stroke-opacity="0.7"/>`,
     );
     lines.push(
-      textEl(x + 15, y + 26, truncate(repo.name, 66), {
+      textEl(x + 15, y + 26, truncate(repo.name, fitUnits(CARD_W - 30, 14)), {
         size: 14,
         weight: 600,
         fill: theme.accent,
