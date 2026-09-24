@@ -32,8 +32,11 @@ if (!mime) {
 const bytes = readFileSync(src);
 const dataUri = `data:${mime};base64,${bytes.toString("base64")}`;
 const name = nameArg || basename(src, extname(src)).replace(/[^A-Za-z0-9]+/g, "_").toUpperCase();
+const key = name.toLowerCase();
 const out = resolve(ROOT, "cards/art.ts");
 
+// 一次只产出一张图、一套压暗。想加浅色档先读 README「插画只在暗色模式出现」那节:
+// 夜景图压白雾到能读字,图也就看不见了,别默认往这个方向做。
 writeFileSync(
   out,
   `// 生成物:node tools/art.mjs ${srcArg.replace(ROOT + "/", "")} ${nameArg || ""}`.trimEnd() +
@@ -53,7 +56,7 @@ interface Art {
 export type { Art };
 
 export const ARTS: Record<string, Art> = {
-  ${name.toLowerCase()}: {
+  ${key}: {
     src: "${dataUri}",
     dim: 0.55,
     dimLeft: 0.92,
@@ -64,4 +67,4 @@ export const ART_NAMES: string[] = Object.keys(ARTS);
 `,
 );
 
-console.log(`${srcArg} → cards/art.ts  (导出 ${name.toLowerCase()}, ${dataUri.length} 字节 data URI)`);
+console.log(`${srcArg} → cards/art.ts  (导出 ${key}, ${dataUri.length} 字节 data URI)`);
