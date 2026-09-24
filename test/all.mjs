@@ -11,6 +11,7 @@ import { setGitHubToken } from "../cards/github.ts";
 import { handler, indexPage } from "../deno_index.ts";
 
 let pass = 0;
+let skipped = 0;
 let failed = [];
 
 function check(name, ok, detail = "") {
@@ -22,6 +23,16 @@ function check(name, ok, detail = "") {
     console.log(`  FAIL ${name}${detail ? ` → ${detail}` : ""}`);
   }
 }
+
+// 出网那条断言依赖匿名 GitHub 额度,共享出口 IP(CI runner)经常一上来就是 0。
+// 额度耗尽不是代码坏了,所以判 skip 而不是 fail —— 但绝不放行成 ok,
+// 因为"错误卡片也是 200 + <svg",静默降级成错误卡片正是这套检查要抓的东西。
+function skip(name, why) {
+  skipped++;
+  console.log(`  skip ${name} (${why})`);
+}
+
+const ERR_MARK = "⚠️";
 
 const get = (path) => new Request(`https://cards.test${path}`);
 
@@ -44,11 +55,23 @@ setGitHubToken(process.env);
 console.log("核心层 deno_index.ts");
 {
   const svg = await handler(get("/stats?username=octocat"));
-  await expectCard("/stats happy path", svg);
-  check(
-    "成功卡片带 CDN 缓存头",
-    (svg.headers.get("cache-control") || "").includes("s-maxage=3600"),
-  );
+  const body = await svg.text();
+  if (body.includes(ERR_MARK) && body.includes("限流")) {
+    // 额度问题不是代码问题:判 skip。但必须喊出来,否则绿色会被读成"真实出网验证过"
+    skip("/stats 出图", "匿名 GitHub 额度耗尽,真实链路未验证");
+    skip("成功卡片带 CDN 缓存头", "同上");
+    console.log("  ⚠️  本轮没有验证过任何真实 GitHub 出网路径");
+  } else {
+    check(
+      "/stats happy path 200 且非错误卡片",
+      svg.status === 200 && body.includes("<svg") && !body.includes(ERR_MARK),
+      `status=${svg.status} 前 80 字=${body.slice(0, 80)}`,
+    );
+    check(
+      "成功卡片带 CDN 缓存头",
+      (svg.headers.get("cache-control") || "").includes("s-maxage=3600"),
+    );
+  }
   await expectCard(
     "非法用户名 → 错误卡片",
     await handler(get(BAD_USER)),
@@ -62,13 +85,13 @@ console.log("核心层 deno_index.ts");
   check("indexPage 带前缀", indexPage("https://x.test/sub").includes("https://x.test/sub/stats"));
   check(
     "子路径兜底匹配(Sites 网关会改写前缀)",
-    (await handler(get("/functions/v1/app/languages?username=not_a_user"))).status === 200,
+    (await handler(get("/api/v1/cards/languages?username=not_a_user"))).status === 200,
   );
 }
 
 // 必须解码:URL.pathname 会把中文目录写成 %E4%B8%8B…,existsSync 就不认识了
-const EO = fileURLToPath(new URL("../functions/", import.meta.url));
-console.log("EdgeOne 函数 functions/*.js");
+const EO = fileURLToPath(new URL("../edge-functions/", import.meta.url));
+console.log("EdgeOne 函数 edge-functions/*.js");
 if (!existsSync(EO)) {
   console.log("  skip 还没生成,先跑 node tools/build.mjs");
 } else {
@@ -136,7 +159,9 @@ console.log("env 读取层");
   check("requireEnv 缺配置时抛错", threw);
 }
 
-console.log(`\n${pass} 通过 / ${failed.length} 失败`);
+console.log(
+  `\n${pass} 通过 / ${failed.length} 失败${skipped ? ` / ${skipped} skip` : ""}`,
+);
 if (failed.length) {
   console.log(failed.map((f) => `  - ${f}`).join("\n"));
   process.exit(1);

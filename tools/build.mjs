@@ -15,10 +15,13 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// 生成物输出到仓库根的 functions/ —— EdgeOne Pages 按"仓库根=站点根"识别边缘函数目录,
-// 放子目录就只在手动 ZIP 上传时可用,GitHub 连接自动部署会找不到路由。
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ENTRY = "deno_index.ts";
+
+// 边缘函数目录名。CLI 认 ["functions","node-functions","edge-functions","cloud-functions"]
+// 四个根级目录,但 `functions` 是旧 Pages 时代的名字(官方文档里只剩一处 pathPatterns
+// 兼容),现行示例一律写 `edge-functions`。顺带避开 Cloudflare Pages 的同名目录。
+const EO_DIR = "edge-functions";
 
 // 相对 import(含跨行的多行写法),捕获组给依赖图用
 const IMPORT_RE = /^[ \t]*import[\s\S]*?from[ \t]*"(\.[^"]+)";?[ \t]*$/gm;
@@ -63,7 +66,7 @@ function collectGraph() {
 
 /**
  * 内联 = 把整张模块图拼成一个自包含作用域,产物里一个 import 都不剩。
- * 这么做是因为 EdgeOne 的 functions/ 能否 import 目录外文件尚未在线上证实;
+ * 这么做是因为边缘函数目录能否 import 目录外文件尚未在线上证实;
  * 零 import 就绕开了这个未知项,不必等探针结论。代价是同一段逻辑按路由文件数复制。
  */
 function inlineCore() {
@@ -120,7 +123,7 @@ const BANNER =
 const EDGEONE_ROUTES = ["index", "stats", "languages", "activity", "repos"];
 
 function buildEdgeOne(core) {
-  const dir = join(ROOT, "functions");
+  const dir = join(ROOT, EO_DIR);
   rmSync(dir, { recursive: true, force: true });
 
   const route = `${BANNER}
@@ -183,4 +186,4 @@ export default onRequest;
 
 const files = [...buildEdgeOne(inlineCore())];
 console.log(files.map((f) => "  " + f).join("\n"));
-console.log(`共 ${files.length} 个文件 → functions/ (EdgeOne Pages 的函数目录)`);
+console.log(`共 ${files.length} 个文件 → ${EO_DIR}/ (EdgeOne Makers 边缘函数目录)`);

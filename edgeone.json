@@ -1,6 +1,3 @@
 {
-  "outputDirectory": ".",
-  "cloudFunctions": {
-    "mainlandRegions": ["ap-guangzhou"]
-  }
+  "outputDirectory": "."
 }

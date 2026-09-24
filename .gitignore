@@ -1,5 +1,5 @@
-# functions/ 是 node tools/build.mjs 的生成物,但刻意入库:
-# EdgeOne Pages 关联仓库后按"仓库根 = 站点根"找函数目录,放子目录就只能在控制台手动传 ZIP。
+# edge-functions/ 是 node tools/build.mjs 的生成物,但刻意入库:
+# EdgeOne Makers 关联仓库后按"仓库根 = 站点根"找函数目录,放子目录就只能在控制台手动传 ZIP。
 # 改了 cards/ 或 deno_index.ts 必须重跑 build,否则线上静默跑旧代码。
 
 node_modules/
@@ -11,3 +11,7 @@ node_modules/
 .env.*
 .dev.vars
 .dev.vars.local
+
+# edgeone CLI 的本地状态目录,可能含 .token(平台令牌明文)。
+# 本站点 outputDirectory 是 ".",整仓都是可请求的静态资源 —— 这条不是整洁问题,是防泄密。
+.edgeone/
