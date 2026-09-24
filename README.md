@@ -69,28 +69,57 @@ node tools/build.mjs   # cards/ + deno_index.ts → functions/*.js
 node test/all.mjs      # 核心层 + 每条函数路由 + 配置探针，一把过
 ```
 
-`functions/` 是生成物但**故意入库**：EdgeOne Pages 关联 GitHub 后按"仓库根 = 站点根"找函数目录，放子目录就只能手动传 ZIP。改完源码重跑 `build`，别手改里面的文件。
+`functions/` 是生成物但**故意入库**：EdgeOne Pages 关联 GitHub 后按"仓库根 = 站点根"找函数目录，放子目录就只能手动传 ZIP。改完源码重跑 `build`，别手改里面的文件；真忘了也没关系，CI 会以"产物过期"红掉。
 
-> 这个目录名和 Cloudflare Pages 撞车（它也认根 `functions/`）。本项目走 CF 是用 `worker.ts` 的 Workers 模式，不受影响；哪天真改用 CF Pages，先把目录挪走。
+> 这个目录名和 Cloudflare Pages 撞车（它也认根 `functions/`）。本项目走 CF 用的是 `worker.ts` 的 Workers 模式，不受影响；哪天真改用 CF Pages，先把目录挪走。
 
-上线：控制台 → EdgeOne Pages → 新建项目 → 关联本仓库，框架选纯静态、输出目录留空；变量里加 `GITHUB_TOKEN`。然后：
+### edgeone.json
+
+仓库根的项目描述文件。只写了两条，都是"把默认行为钉死"，不是开新功能：
+
+| 字段 | 值 | 为什么 |
+|------|----|--------|
+| `outputDirectory` | `"."` | 站点根 = 仓库根，不给平台猜框架的机会（仓库里有 `deno.json`，被识别成 Deno 项目去跑构建就麻烦了） |
+| `cloudFunctions.mainlandRegions` | `["ap-guangzhou"]` | 让函数在中国大陆有执行节点。**不影响 README 里的图**（卡片是 GitHub 的代理服务器来抓取的），只影响你在国内直接打开卡片链接 |
+
+其余字段是刻意留白，别顺手加：
+
+- `headers` —— 等实测确认边缘不遵守函数自己的 `Cache-Control` 再用。提前压一条，会把函数那条更合适的头覆盖掉。
+- `buildCommand` / `installCommand` / `nodeVersion` —— 产物已经在仓库里，平台什么都不用构建。
+- `redirects` / `rewrites` —— 路由由 `functions/` 里的文件名直接决定，不需要映射层。
+
+### 上线
+
+控制台 → EdgeOne Pages → 新建项目 → 关联本仓库（配置读 `edgeone.json`），然后在项目变量里加 `GITHUB_TOKEN` —— 不给就退回匿名 60 次/小时，一张语言卡就能把额度吃穿。验收两条：
 
 ```bash
-curl https://你的域名/health    # 看 config.GITHUB_TOKEN 是不是 true
+curl https://你的域名/health                       # functions/ 认了没 + 密钥读到没
+curl -sI "https://你的域名/stats?username=octocat"  # 边缘缓存头
 ```
 
-`/health` 返回 HTML 或 404 说明 `functions/` 没被识别；返回 JSON 但 `config.GITHUB_TOKEN:false` 说明变量没读到。这条路由是探针，只回布尔和变量名，不泄密钥。
+`/health` 返回 HTML 或 404 → `functions/` 没被识别；返回 JSON 但 `config.GITHUB_TOKEN:false` → 变量没生效，改完要重新部署一次。这条路由是探针，只回布尔和变量名，不泄密钥。
 
-上线后第一件事是验边缘缓存到底听不听函数的 `Cache-Control` —— 这决定你的 GitHub 额度会不会被烧穿：
+边缘缓存判生死的方法：同一个链接连查两次，`age` 在涨或出现 HIT 类头 = 边缘在挡；永远 `age: 0` = 每次刷新都回源打 GitHub，这时再给 `edgeone.json` 补一条 `headers`。
 
-```bash
-curl -sI https://你的域名/stats?username=你的用户名 | grep -iE 'cache-control|age|x-cache'
-sleep 5; curl -sI https://你的域名/stats?username=你的用户名 | grep -iE 'cache-control|age|x-cache'
+## 📁 目录结构
+
+```
+new-make/
+├─ deno_index.ts          真源 · 路由表 + handler(req, env?, basePath?) + 首页
+├─ cards/                 真源 · GitHub 数据层、6 套主题、4 张卡的 SVG 拼装
+│  └─ env.ts              跨平台配置读取的唯一入口，别处不许摸 Deno.env / process.env
+├─ functions/             【生成物】EdgeOne 函数，每个文件自带全部逻辑、零 import
+├─ worker.ts              Cloudflare Workers 入口
+├─ wrangler.toml          Cloudflare 配置
+├─ node_server.mjs        Node 入口（本机预览 / 长挂）
+├─ deno.json              Deno task 与 fmt 配置
+├─ edgeone.json           EdgeOne Pages 项目描述
+├─ tools/build.mjs        真源 → functions/
+├─ test/all.mjs           核心层 + 每条函数路由 + 探针 + env 优先级
+└─ .github/workflows/     CI：重新 build，产物过期或检查失败就红
 ```
 
-两次都拿到 `age` 在涨、或出现 HIT 类头，说明边缘在挡；一直 `age: 0` 就是每次刷新都回源打 GitHub，这时再用 `edgeone.json` 的 header 规则强压一条 `cache-control`。
-
-仓库根**没有也不需要** `edgeone.json`：函数路由靠 `functions/` 目录约定就生效了。那个文件用来配构建命令、redirect/rewrite、以及给响应强制加 header —— 只有实测发现边缘不遵守函数自己的 `Cache-Control` 时，才需要用它补一条。
+记法：**只有 `cards/` 和 `deno_index.ts` 需要动手**，其余是入口、产物和保险带。
 
 ## 📝 在 README 中使用
 

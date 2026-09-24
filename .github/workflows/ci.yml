@@ -1,0 +1,33 @@
+name: ci
+
+# 只有一件事值得为这个仓库上 CI: functions/ 是生成物, 忘跑 build 就 push 会让线上
+# 静默跑旧代码, 而且症状看起来"一切正常"。这里把"产物落后于源码"变成一次红叉。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node >= 23.6 才默认直接跑 .ts, 本地检查和线上产物都依赖这个
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 重新生成函数产物
+        run: node tools/build.mjs
+
+      - name: 产物必须与提交的 functions/ 一致
+        run: |
+          git add --intent-to-add functions/
+          git diff --quiet --exit-code functions/ || {
+            echo "::error title=产物过期::functions/ 与源码不一致, 把上面的 node tools/build.mjs 结果一起提交。"
+            exit 1
+          }
+
+      - name: 全量检查
+        run: node test/all.mjs

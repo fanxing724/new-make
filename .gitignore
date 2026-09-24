@@ -1,4 +1,13 @@
-# 构建产物由 node tools/build.mjs 生成;EdgeOne Pages 按"仓库根=站点根"识别,
-# 所以函数目录必须留在仓库根 —— 这里刻意**不**忽略它。
+# functions/ 是 node tools/build.mjs 的生成物,但刻意入库:
+# EdgeOne Pages 关联仓库后按"仓库根 = 站点根"找函数目录,放子目录就只能在控制台手动传 ZIP。
+# 改了 cards/ 或 deno_index.ts 必须重跑 build,否则线上静默跑旧代码。
+
 node_modules/
 *.log
+
+# 站点根会被整仓当静态资源发布,密钥文件一旦被请求就是明文外泄。
+# GITHUB_TOKEN 只允许待在平台变量里:EdgeOne 控制台 / wrangler secret / 进程环境。
+.env
+.env.*
+.dev.vars
+.dev.vars.local
