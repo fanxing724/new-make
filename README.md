@@ -36,7 +36,7 @@
 
 ## ☁️ 部署到 Cloudflare Workers（备选）
 
-`handler` 是纯 Web Fetch API，Workers 入口见 `worker.ts`（只做了密钥注入）。
+`handler` 是纯 Web Fetch API，Workers 入口见 `worker.ts`（只做调用形状转换）。
 
 ```bash
 npm install -g wrangler
@@ -50,6 +50,40 @@ wrangler deploy                    # 部署，得到 https://new-make.<子域>.w
 也可以在 Cloudflare Dashboard 用 **Workers & Pages → Import from GitHub** 绑定本仓库：
 读取 `wrangler.toml` 后每次 push 自动部署；`GITHUB_TOKEN` 在
 **Settings → Variables and Secrets** 里以 Secret 类型添加。
+
+## 🧩 一份源码，多平台
+
+`cards/` + `deno_index.ts` 是唯一真源，平台差异全部收在薄入口里（只做密钥注入和调用形状转换，不含业务逻辑）：
+
+| 平台 | 入口 | GITHUB_TOKEN 怎么给 |
+|------|------|--------------------|
+| Deno Deploy | `deno_index.ts`（末尾自带本地启动块） | 项目环境变量 |
+| Cloudflare Workers / Pages | `worker.ts` | `wrangler secret put` |
+| Node（本机长挂） | `node_server.mjs` | 进程环境变量 |
+| EdgeOne Pages | `platforms/edgeone/`（**生成物**） | 控制台 Variables |
+
+EdgeOne 产物是内联生成的：`functions/` 能否 import 目录外的文件这个行为还没在线上证实，所以生成的每个路由文件自带全部逻辑、一个 import 都不剩，不依赖那个未知项。
+
+```bash
+node tools/build.mjs   # cards/ + deno_index.ts → platforms/edgeone/functions/*.js
+node test/all.mjs      # 核心层 + 每条产物路由 + 配置探针，一把过
+```
+
+改完源码要重跑 `build`；`platforms/` 下的文件不要手改，会被覆盖。上传 EdgeOne 时把 `platforms/edgeone/` 的**目录内容**当项目根（`functions/` 在顶层）。
+
+EdgeOne 上线（走控制台上传 ZIP，本机 CLI 被 DNS 污染挡住）：
+
+```bash
+node tools/build.mjs && (cd platforms/edgeone && zip -rq ../edgeone.zip .)
+```
+
+然后在 Pages 项目里选「纯静态」框架上传 `platforms/edgeone.zip`，控制台变量里加 `GITHUB_TOKEN`（Secret 类型），最后：
+
+```bash
+curl https://你的域名/health    # 看 config.GITHUB_TOKEN 是不是 true
+```
+
+`/health` 返回 HTML 或 404 说明 `functions/` 没被识别；返回 JSON 但 `config.GITHUB_TOKEN:false` 说明变量没读到。这条路由是探针，只回布尔和变量名，不会泄密钥。
 
 ## 📝 在 README 中使用
 
@@ -142,9 +176,12 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 
 - 成功渲染的卡片：`Cache-Control: public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400`
 - 服务内部对 GitHub API 的响应另有 5 分钟进程内缓存，相同请求会合并，不会重复消耗额度
+- 上一条只在常驻进程（Deno Deploy / Node）里成立：Workers、EdgeOne 这类隔离运行时的实例随时回收，进程内缓存命中是运气不是保证，真正挡住额度的是那条 `s-maxage`，其次是平台自己的边缘缓存
 - 错误卡片（用户不存在、限流等）：`no-store`，恢复后立刻自愈，不会在 README 里挂一小时
 
 ## 🔧 本地开发
+
+装了 Deno：
 
 ```bash
 deno task start          # 等价于 deno run --allow-net --allow-env deno_index.ts
@@ -153,4 +190,12 @@ deno task start          # 等价于 deno run --allow-net --allow-env deno_index
 deno task check          # 类型检查
 deno task lint           # lint
 deno task fmt            # 格式化
+```
+
+没装 Deno，用 Node（24 直接跑 `.ts`；22.6~23.5 需要加 `--experimental-strip-types`）：
+
+```bash
+GITHUB_TOKEN=xxx node node_server.mjs   # → http://127.0.0.1:8787/
+node tools/build.mjs                    # 生成 EdgeOne 产物
+node test/all.mjs                       # 核心层 + 产物 + 探针
 ```

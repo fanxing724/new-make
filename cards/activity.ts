@@ -4,7 +4,7 @@ import { finishCard, startCard, textEl, timeAgo, truncate } from "./common.ts";
 import { fetchEvents } from "./github.ts";
 import type { Theme } from "./theme.ts";
 
-const WIDTH = 400;
+const ACTIVITY_WIDTH = 400;
 const MAX_EVENTS_SHOWN = 3;
 
 const EVENT_META: Record<string, { emoji: string; desc: string }> = {
@@ -30,7 +30,7 @@ export async function renderActivityCard(
   const events = await fetchEvents(username);
 
   if (events.length === 0) {
-    const lines = startCard(theme, WIDTH, 120, "⚡ 最近活跃", `@${username}`, "gc-act");
+    const lines = startCard(theme, ACTIVITY_WIDTH, 120, "⚡ 最近活跃", `@${username}`, "gc-act");
     lines.push(
       textEl(20, 90, "暂无最近活动记录", { size: 13, fill: theme.text }),
     );
@@ -50,7 +50,7 @@ export async function renderActivityCard(
 
   const lines = startCard(
     theme,
-    WIDTH,
+    ACTIVITY_WIDTH,
     height,
     "⚡ 最近活跃",
     `@${username} · 基于最近 ${events.length} 条事件`,
@@ -88,7 +88,7 @@ export async function renderActivityCard(
   });
 
   lines.push(
-    `  <line x1="16" y1="130" x2="${WIDTH - 16}" y2="130" stroke="${theme.border}" stroke-width="1"/>`,
+    `  <line x1="16" y1="130" x2="${ACTIVITY_WIDTH - 16}" y2="130" stroke="${theme.border}" stroke-width="1"/>`,
   );
 
   shown.forEach((event, i) => {
@@ -100,7 +100,7 @@ export async function renderActivityCard(
       ? fullName.slice(fullName.indexOf("/") + 1)
       : fullName || "未知仓库";
     lines.push(
-      `  <rect x="16" y="${y}" width="${WIDTH - 32}" height="20" rx="6" fill="${theme.accent}" fill-opacity="0.06"/>`,
+      `  <rect x="16" y="${y}" width="${ACTIVITY_WIDTH - 32}" height="20" rx="6" fill="${theme.accent}" fill-opacity="0.06"/>`,
     );
     lines.push(
       textEl(24, y + 14, `${meta.emoji} ${meta.desc}`, {
@@ -115,7 +115,7 @@ export async function renderActivityCard(
       }),
     );
     lines.push(
-      textEl(WIDTH - 24, y + 14, timeAgo(event.created_at), {
+      textEl(ACTIVITY_WIDTH - 24, y + 14, timeAgo(event.created_at), {
         size: 11,
         anchor: "end",
         fill: theme.text,

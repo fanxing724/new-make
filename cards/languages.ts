@@ -12,7 +12,7 @@ import {
 import { fetchOwnRepos, sumLanguageBytes } from "./github.ts";
 import type { Theme } from "./theme.ts";
 
-const WIDTH = 400;
+const LANGUAGES_WIDTH = 400;
 const TOP_N = 8;
 
 interface Slice {
@@ -90,7 +90,7 @@ function renderPie(
   // 高度随图例行数增长，超出画布的图例不再被静默裁掉
   const height = Math.max(220, legendY0 + slices.length * legendRow + 16);
 
-  const lines = startCard(theme, WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
 
   // 底轨：让圆环在数据稀疏时也有完整的轮廓
   lines.push(
@@ -136,7 +136,7 @@ function renderPie(
       }),
     );
     lines.push(
-      textEl(WIDTH - 20, y + 2, pct(slice.pct), {
+      textEl(LANGUAGES_WIDTH - 20, y + 2, pct(slice.pct), {
         size: 12,
         anchor: "end",
         fill: theme.accent,
@@ -152,10 +152,10 @@ function renderBar(slices: Slice[], username: string, theme: Theme): string {
   const gap = 8;
   const barX = 130;
   // 条形区域右侧要留出百分比文字的位置，否则占比高的语言会画出卡片外
-  const barMaxW = WIDTH - barX - 70;
+  const barMaxW = LANGUAGES_WIDTH - barX - 70;
   const height = 60 + slices.length * (barH + gap) + 20;
 
-  const lines = startCard(theme, WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
 
   slices.forEach((slice, i) => {
     const y = 65 + i * (barH + gap);
@@ -174,7 +174,7 @@ function renderBar(slices: Slice[], username: string, theme: Theme): string {
       }" height="${barH}" rx="5" fill="${slice.color}" opacity="0.85"/>`,
     );
     lines.push(
-      textEl(WIDTH - 20, y + 15, pct(slice.pct), {
+      textEl(LANGUAGES_WIDTH - 20, y + 15, pct(slice.pct), {
         size: 12,
         anchor: "end",
         fill: theme.text,

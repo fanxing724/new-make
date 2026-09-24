@@ -5,7 +5,7 @@ import { fetchEvents, fetchOwnRepos, fetchUser } from "./github.ts";
 import type { Theme } from "./theme.ts";
 import type { GitHubEvent, GitHubRepo } from "./types.ts";
 
-const WIDTH = 450;
+const STATS_WIDTH = 450;
 const HEIGHT = 210;
 const TILE_W = 200;
 const TILE_H = 38;
@@ -66,7 +66,7 @@ export async function renderStatsCard(
 
   const lines = startCard(
     theme,
-    WIDTH,
+    STATS_WIDTH,
     HEIGHT,
     "📊 GitHub 统计",
     `@${user.login}`,
@@ -110,7 +110,7 @@ export async function renderStatsCard(
     });
     const color = percentile <= 3 ? green : percentile <= 6 ? orange : accent;
     const pillW = 92;
-    const pillX = WIDTH - 16 - pillW;
+    const pillX = STATS_WIDTH - 16 - pillW;
     lines.push(
       `  <rect x="${pillX}" y="17" width="${pillW}" height="24" rx="12" fill="${color}" fill-opacity="0.16" stroke="${color}" stroke-opacity="0.45"/>`,
     );

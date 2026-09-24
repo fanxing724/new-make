@@ -1,7 +1,5 @@
-// Cloudflare Workers 入口
-// deno_index.ts 的 handler 是纯 Web Fetch API，这里只做密钥注入后直接复用
+// Cloudflare Workers 入口：只做密钥注入 + 调用形状转换，业务逻辑全在 deno_index.ts
 
-import { setGitHubToken } from "./cards/github.ts";
 import { handler } from "./deno_index.ts";
 
 interface Env {
@@ -10,7 +8,6 @@ interface Env {
 
 export default {
   fetch(request: Request, env: Env): Promise<Response> {
-    setGitHubToken(env.GITHUB_TOKEN);
-    return handler(request);
+    return handler(request, env);
   },
 };

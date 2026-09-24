@@ -4,6 +4,8 @@
 // /languages 子接口，所以缓存与请求合并是必需项而不是优化项。
 
 import { CardError } from "./common.ts";
+import { readEnv } from "./env.ts";
+import type { EnvBag } from "./env.ts";
 import type { GitHubEvent, GitHubRepo, GitHubUser } from "./types.ts";
 
 const API_BASE = "https://api.github.com";
@@ -24,23 +26,17 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<unknown>>();
 
-function readToken(): string {
-  try {
-    return Deno.env.get("GITHUB_TOKEN") ?? "";
-  } catch {
-    // 没开 --allow-env 时降级为匿名调用
-    return "";
-  }
-}
-
-let token = readToken();
+// 模块作用域的密钥只是"本实例当前请求"的快照，不代表进程级配置：
+// 隔离型运行时（Workers / EdgeOne）实例会跨请求复用，所以 handler 每个请求都会重设一次。
+let token = "";
 
 /**
- * 非 Deno 运行时（Cloudflare Workers 等）拿不到 Deno.env，
- * 密钥只能从 fetch 的 env 绑定里取，由入口层每个请求注入一次。
+ * 入口层每个请求调用一次。env 是该平台的变量袋：
+ * Cloudflare Workers 的 env、EdgeOne 的 context.env；Deno/Node 传 undefined 即可，
+ * readEnv 会自己退到 Deno.env / process.env。
  */
-export function setGitHubToken(value: string | undefined): void {
-  token = value || readToken();
+export function setGitHubToken(env?: EnvBag): void {
+  token = readEnv(env, "GITHUB_TOKEN");
 }
 
 // GitHub 登录名规则：字母数字，连字符不首不尾也不连续，最长 39

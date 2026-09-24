@@ -4,11 +4,12 @@
 
 import { renderActivityCard } from "./cards/activity.ts";
 import { CardError, renderErrorCard } from "./cards/common.ts";
-import { assertUsername } from "./cards/github.ts";
+import { assertUsername, setGitHubToken } from "./cards/github.ts";
 import { renderLanguagesCard } from "./cards/languages.ts";
 import { renderReposCard } from "./cards/repos.ts";
 import { renderStatsCard } from "./cards/stats.ts";
 import { getTheme, THEMES, THEME_NAMES, type Theme } from "./cards/theme.ts";
+import type { EnvBag } from "./cards/env.ts";
 
 const DEFAULT_USERNAME = "fanxing724";
 const OK_CACHE =
@@ -93,7 +94,7 @@ function svgResponse(svg: string, cacheControl: string): Response {
   });
 }
 
-function indexPage(origin: string): string {
+export function indexPage(base: string): string {
   const themeSwatches = THEME_NAMES.map((name) => {
     const t = THEMES[name];
     return `<span class="swatch"><i style="background:${t.accent};box-shadow:0 0 0 3px ${t.card},0 0 0 4px ${t.border}"></i>${name}</span>`;
@@ -107,7 +108,7 @@ function indexPage(origin: string): string {
   ) => `
   <section class="card">
     <h2>${icon} ${title}</h2>
-    <div class="code-row"><code class="url">![${title}](${origin}${url})</code><button class="copy">复制</button></div>
+    <div class="code-row"><code class="url">![${title}](${base}${url})</code><button class="copy">复制</button></div>
     <p class="params">${params.map((p) => `<span class="badge">${p}</span>`).join(" ")}</p>
   </section>`;
 
@@ -220,13 +221,13 @@ function indexPage(origin: string): string {
   <div class="swatches">${themeSwatches}</div>
 
   <h2>📝 在 README 中使用</h2>
-  <pre>![GitHub 统计](${origin}/stats?username=fanxing724&theme=catppuccin&show_icons=true)
+  <pre>![GitHub 统计](${base}/stats?username=fanxing724&theme=catppuccin&show_icons=true)
 
-![编程语言](${origin}/languages?username=fanxing724&theme=catppuccin&layout=pie)
+![编程语言](${base}/languages?username=fanxing724&theme=catppuccin&layout=pie)
 
-![最近活跃](${origin}/activity?username=fanxing724&theme=catppuccin)
+![最近活跃](${base}/activity?username=fanxing724&theme=catppuccin)
 
-![精选仓库](${origin}/repos?username=fanxing724&theme=catppuccin&count=4)</pre>
+![精选仓库](${base}/repos?username=fanxing724&theme=catppuccin&count=4)</pre>
 
   <footer>GitHub Cards · Deno Deploy · 数据来自 GitHub REST API</footer>
 
@@ -244,17 +245,30 @@ function indexPage(origin: string): string {
 </html>`;
 }
 
-export async function handler(req: Request): Promise<Response> {
+/**
+ * 平台差异只有两处：env 袋（Workers/EdgeOne 传 context.env，Deno/Node 省略）
+ * 和 basePath（服务被挂在子路径下时，首页示例链接要带上前缀）。
+ */
+export async function handler(
+  req: Request,
+  env?: EnvBag,
+  basePath = "",
+): Promise<Response> {
+  // 每请求重设：隔离型运行时的实例会跨请求复用，模块作用域不是"进程级配置"
+  setGitHubToken(env);
+
   const url = new URL(req.url);
   const { pathname, searchParams } = url;
 
   if (pathname === "/" || pathname === "/index.html") {
-    return new Response(indexPage(url.origin), {
+    return new Response(indexPage(url.origin + basePath), {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
 
-  const render = ROUTES.get(pathname);
+  // 网关可能改写路径前缀（Qoder Sites 会把函数名段换成上游名），故按最后一段兜底匹配
+  const render = ROUTES.get(pathname) ??
+    ROUTES.get(pathname.slice(pathname.lastIndexOf("/")));
   if (!render) {
     return new Response("Not Found", { status: 404 });
   }
@@ -283,5 +297,7 @@ export async function handler(req: Request): Promise<Response> {
 
 if (import.meta.main) {
   const port = Number(Deno.env.get("PORT") ?? 8000) || 8000;
-  Deno.serve({ hostname: "0.0.0.0", port }, handler);
+  // 包一层箭头函数：Deno.serve 会把 ServeHandlerInfo 当第二个参数传进来，
+  // 而 handler 的第二参是 env 袋，不能接错。
+  Deno.serve({ hostname: "0.0.0.0", port }, (req) => handler(req));
 }
