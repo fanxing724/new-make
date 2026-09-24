@@ -184,6 +184,7 @@ console.log("预渲染 tools/render.mjs (假上游)");
       output: outName,
       cards: {
         stats: { theme: "default", show_icons: "true" },
+        "stats.light": { theme: "light", show_icons: "true" },
         languages: { theme: "default", layout: "bar" },
         activity: { theme: "default" },
         repos: { theme: "default", count: "6" },
@@ -192,11 +193,11 @@ console.log("预渲染 tools/render.mjs (假上游)");
   );
   const outDir = join(ROOT, outName);
 
-  const run = (mode) => {
+  const run = (mode, cfg = cfgPath) => {
     try {
       const stdout = execFileSync(
         process.execPath,
-        ["--import", preload, join(ROOT, "tools/render.mjs"), "--config", cfgPath],
+        ["--import", preload, join(ROOT, "tools/render.mjs"), "--config", cfg],
         {
           env: { ...process.env, FAKE_MODE: mode, GITHUB_TOKEN: "fake-token" },
           encoding: "utf8",
@@ -224,6 +225,31 @@ console.log("预渲染 tools/render.mjs (假上游)");
     : "";
   check("渲染出的卡片不含错误标记", rendered.includes("<svg") && !rendered.includes(ERR_MARK));
   check("自检页与 status.json 齐备", existsSync(join(outDir, "index.html")) && existsSync(join(outDir, "status.json")));
+
+  // 变体:深浅两份文件撑起 README 里的 <picture>。只判"文件在"不够 —— 参数没生效时
+  // 文件照样在,只是和主文件一模一样,浅色模式下就是一块深色板。
+  const lightPath = join(outDir, "fanxing724", "stats.light.svg");
+  const light = existsSync(lightPath) ? readFileSync(lightPath, "utf8") : "";
+  check("变体文件名带点号后缀", light.includes("<svg"));
+  check(
+    "变体真按自己的参数渲染(非主文件副本)",
+    light !== "" && rendered !== "" && light !== rendered,
+  );
+
+  // card 键名要拼进产物路径,白名单挡的是 `../` 这种写到输出目录外的写法
+  const badCfg = join(ROOT, ".render.bad.json");
+  writeFileSync(
+    badCfg,
+    JSON.stringify({ usernames: ["fanxing724"], output: outName, cards: { "stats/../../evil": {} } }),
+  );
+  const bad = run("normal", badCfg);
+  check(
+    "非法键名被挡下且说人话",
+    bad.code !== 0 && bad.stdout.includes("非法"),
+    bad.stdout.slice(-160),
+  );
+  check("非法键名没留下越界产物", !existsSync(join(ROOT, "evil.svg")));
+  unlinkSync(badCfg);
 
   // 这条是整套预渲染的安全带:限流时 handler 返回的仍是 200 + <svg> + ⚠️,
   // 让它进 CDN 就等于把红卡挂到下次成功为止,比不更新糟糕得多。

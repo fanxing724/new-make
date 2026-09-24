@@ -2,9 +2,13 @@
   "usernames": ["fanxing724"],
   "output": "dist-cards",
   "cards": {
-    "stats": { "theme": "default", "show_icons": "true" },
-    "languages": { "theme": "default", "layout": "bar" },
-    "activity": { "theme": "default" },
-    "repos": { "theme": "default", "count": "6", "sort": "updated" }
+    "stats": { "theme": "catppuccin", "show_icons": "true" },
+    "stats.light": { "theme": "light", "show_icons": "true" },
+    "languages": { "theme": "catppuccin", "layout": "pie" },
+    "languages.light": { "theme": "light", "layout": "pie" },
+    "activity": { "theme": "catppuccin" },
+    "activity.light": { "theme": "light" },
+    "repos": { "theme": "catppuccin", "count": "6", "sort": "updated" },
+    "repos.light": { "theme": "light", "count": "6", "sort": "updated" }
   }
 }

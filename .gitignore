@@ -10,6 +10,10 @@ node_modules/
 dist-cards/
 .test-cards/
 
+# test/all.mjs 自己写的临时配置(跑完会删;留个兜底,免得断言中途炸了就把垃圾带进提交)
+.render.test.json
+.render.bad.json
+
 # 站点根会被整仓当静态资源发布,密钥文件一旦被请求就是明文外泄。
 # GITHUB_TOKEN 只允许待在平台变量里:EdgeOne 控制台 / wrangler secret / 进程环境。
 .env

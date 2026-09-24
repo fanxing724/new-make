@@ -37,6 +37,26 @@ render.yml          每小时渲染 → Pages 发布
 
 四张卡分别是 `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg`。
 
+想跟着 GitHub 的深浅色模式换主题（按需服务里就是换 `theme` 参数），在 `cards` 的
+键名上加个变体后缀：
+
+```json
+"stats":       { "theme": "catppuccin", "show_icons": "true" },
+"stats.light": { "theme": "light",      "show_icons": "true" }
+```
+
+点号前决定打哪条路由，点号后只决定文件名，产出 `stats.svg` 和 `stats.light.svg`。
+README 里用 `<picture>` 挑其中一张：
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="…/fanxing724/stats.light.svg">
+  <img alt="GitHub 统计" src="…/fanxing724/stats.svg" width="400">
+</picture>
+```
+
+同一批变体在一次运行里出完，共享那个 5 分钟进程内缓存，所以第二份几乎不再出网。
+
 ### 为什么不走按需服务
 
 按需服务的缓存救不了额度。`username` 只校验**格式**不校验存在性，于是

@@ -2,6 +2,10 @@
 //
 //   node tools/render.mjs [--config render.config.json]
 //
+// cards 的键名支持 `stats`(出 stats.svg)和 `stats.light`(出 stats.light.svg):
+// 点号前决定打哪条路由,点号后只决定文件名。README 里的 <picture> 靠深浅两份文件
+// 适配 GitHub 的深浅色模式 —— 等价于按需服务里同一 URL 换 theme 参数。
+//
 // 为什么要预渲染而不是实时代理:卡片的缓存 key 是 ?username=,由来访者控制 ——
 // 换个人就必然回源一次,边缘缓存拦不住枚举。预渲染把"访客数"和"GitHub API 调用数"
 // 彻底解耦:一万人刷主页也是零次出网,而且这条路径上不存在任何长期密钥。
@@ -46,6 +50,15 @@ if (!Array.isArray(cfg.usernames) || cfg.usernames.length === 0) {
 if (!cfg.cards || Object.keys(cfg.cards).length === 0) {
   fail(`${configPath}: cards 不能为空`);
 }
+// 键名允许 `stats` 或 `stats.light`:点号前是路由,点号后是变体名(为了浅色模式各出一份)。
+// 这道白名单不是为了整洁 —— card 会拼进产物路径,`stats/../../x` 这种写法能让
+// writeFileSync 一路写到输出目录外面去。同时它把打错的卡名从"神秘 404 卡片"变成人话。
+const CARD_KEY_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)?$/;
+for (const key of Object.keys(cfg.cards)) {
+  if (!CARD_KEY_RE.test(key)) {
+    fail(`${configPath}: 卡片键名 "${key}" 非法,只允许 小写字母/数字/-/.,且最多一个点`)
+  }
+}
 
 const OUT = resolve(ROOT, cfg.output || "dist-cards");
 // 成功渲染后这个目录会被整目录删掉重建 —— 所以它必须是仓库里的一个子目录。
@@ -67,13 +80,15 @@ const failures = [];
 const started = Date.now();
 
 for (const username of cfg.usernames) {
-  for (const [card, rawParams] of Object.entries(cfg.cards)) {
+  for (const [key, rawParams] of Object.entries(cfg.cards)) {
+    const card = key.split(".")[0];
+    const variant = key.slice(card.length + 1);
     const params = new URLSearchParams({ username });
     for (const [k, v] of Object.entries(rawParams || {})) {
       params.set(k, String(v));
     }
     const url = `https://render.local/${card}?${params}`;
-    const dest = join(username, `${card}.svg`);
+    const dest = join(username, variant ? `${card}.${variant}.svg` : `${card}.svg`);
 
     let res;
     try {
