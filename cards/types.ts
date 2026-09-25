@@ -19,8 +19,10 @@ export interface GitHubRepo {
 }
 
 export interface GitHubEvent {
+  id?: string;
   type: string;
   repo: { name: string };
   created_at: string;
-  payload: { commits?: unknown[] };
+  // payload.size 是推送的真实提交数;commits 数组会被 GitHub 截到最多 20 条
+  payload: { size?: number; commits?: unknown[] };
 }

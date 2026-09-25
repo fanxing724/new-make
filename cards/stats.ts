@@ -47,11 +47,13 @@ export async function renderStatsCard(
   const stars = sum(repos, (r) => r.stargazers_count);
   const forks = sum(repos, (r) => r.forks_count);
   // events 只覆盖最近 90 天，就按这个口径标注，不再对外估一个“总提交数”
+  // 优先 payload.size：commits 数组被 GitHub 截到最多 20 条，大推送会低估
   const commits = events.reduce(
-    (total, e) =>
-      e.type === "PushEvent"
-        ? total + (e.payload?.commits?.length ?? 1)
-        : total,
+    (total, e) => {
+      if (e.type !== "PushEvent") return total;
+      const size = e.payload?.size ?? e.payload?.commits?.length ?? 1;
+      return total + size;
+    },
     0,
   );
 

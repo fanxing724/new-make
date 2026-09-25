@@ -303,7 +303,10 @@ function readEnvFlag(env        , name        )          {
 
 const API_BASE = "https://api.github.com";
 const PER_PAGE = 100;
-const MAX_REPO_PAGES = 3;
+// events 接口单页 100 条、单用户最多吐 300 条 —— 拉满才能对得起"近 90 天"的口径
+const MAX_EVENT_PAGES = 3;
+// 拉满 10 页 = 1000 个仓库;再往上的人,统计卡片本身已经不具代表性了
+const MAX_REPO_PAGES = 10;
 const DEFAULT_TTL_MS = 5 * 60_000;
 const LANG_TTL_MS = 10 * 60_000;
 // 不存在的用户也会被反复请求，用很短的负缓存挡住重复打靶
@@ -361,7 +364,12 @@ function cacheSet(path        , entry            )       {
 }
 
 function remember(path        , error           )            {
-  cacheSet(path, { expiresAt: Date.now() + FAILURE_TTL_MS, error });
+  // 404 与认证状态无关，匿名下也可以负缓存挡住重复打靶；
+  // 限流/上游错误是认证相关的（匿名 60 次/小时不代表认证请求也会失败），
+  // 匿名时落缓存会让随后的认证请求误报，所以只有带 token 才记。
+  if (token || error.kind === "not_found") {
+    cacheSet(path, { expiresAt: Date.now() + FAILURE_TTL_MS, error });
+  }
   return error;
 }
 
@@ -373,59 +381,66 @@ async function send   (path        , ttlMs        )             {
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  let res          ;
-  try {
-    res = await fetch(`${API_BASE}${path}`, { headers });
-  } catch {
-    throw new CardError("无法连接 GitHub API", {
-      kind: "upstream",
-      hint: "网络抖动，稍后重试即可",
-    });
-  }
+  const doSend                   = async () => {
+    let res          ;
+    try {
+      res = await fetch(`${API_BASE}${path}`, { headers });
+    } catch {
+      throw new CardError("无法连接 GitHub API", {
+        kind: "upstream",
+        hint: "网络抖动，稍后重试即可",
+      });
+    }
 
-  if (res.status === 404) {
-    throw remember(path, new CardError("GitHub 用户或仓库不存在", {
-      kind: "not_found",
-      hint: "请检查用户名是否正确",
-    }));
-  }
-  if (res.status === 403 || res.status === 429) {
-    if (res.headers.get("x-ratelimit-remaining") === "0") {
-      const resetMs = Number(res.headers.get("x-ratelimit-reset") ?? 0) * 1000;
-      const mins = resetMs
-        ? Math.max(1, Math.round((resetMs - Date.now()) / 60_000))
-        : 0;
-      throw remember(path, new CardError("已触发 GitHub 限流", {
-        kind: "rate_limited",
-        hint: mins
-          ? `约 ${mins} 分钟后恢复，建议为服务配置 GITHUB_TOKEN`
-          : "稍后重试，建议为服务配置 GITHUB_TOKEN",
+    if (res.status === 404) {
+      throw remember(path, new CardError("GitHub 用户或仓库不存在", {
+        kind: "not_found",
+        hint: "请检查用户名是否正确",
       }));
     }
-    throw remember(path, new CardError("GitHub API 拒绝了这次请求", {
-      kind: "upstream",
-      hint: "可能是二级限流，稍后重试",
-    }));
-  }
-  if (!res.ok) {
-    throw remember(path, new CardError(`GitHub API 返回 ${res.status}`, {
-      kind: "upstream",
-      hint: "稍后重试",
-    }));
-  }
-  // 204：仓库没有任何语言数据
-  if (res.status === 204) {
-    cacheSet(path, { expiresAt: Date.now() + ttlMs, value: null });
-    return null     ;
-  }
+    if (res.status === 403 || res.status === 429) {
+      if (res.headers.get("x-ratelimit-remaining") === "0") {
+        const resetMs = Number(res.headers.get("x-ratelimit-reset") ?? 0) * 1000;
+        const mins = resetMs
+          ? Math.max(1, Math.round((resetMs - Date.now()) / 60_000))
+          : 0;
+        throw remember(path, new CardError("已触发 GitHub 限流", {
+          kind: "rate_limited",
+          hint: mins
+            ? `约 ${mins} 分钟后恢复，建议为服务配置 GITHUB_TOKEN`
+            : "稍后重试，建议为服务配置 GITHUB_TOKEN",
+        }));
+      }
+      throw remember(path, new CardError("GitHub API 拒绝了这次请求", {
+        kind: "upstream",
+        hint: "可能是二级限流，稍后重试",
+      }));
+    }
+    if (!res.ok) {
+      throw remember(path, new CardError(`GitHub API 返回 ${res.status}`, {
+        kind: "upstream",
+        hint: "稍后重试",
+      }));
+    }
+    // 204：仓库没有任何语言数据
+    if (res.status === 204) {
+      return null     ;
+    }
 
-  let value   ;
-  try {
-    value = await res.json()     ;
-  } catch {
-    throw new CardError("GitHub API 返回了非 JSON 内容", { kind: "upstream" });
+    try {
+      return await res.json()     ;
+    } catch {
+      throw new CardError("GitHub API 返回了非 JSON 内容", { kind: "upstream" });
+    }
+  };
+
+  const value = await doSend();
+  // 缓存必须区分认证状态：同一实例里 token 由入口层逐请求重设，
+  // 匿名响应若落缓存，认证请求会命中"匿名 60 次/小时"的负缓存误报限流；
+  // 反向污染则让匿名请求白嫖认证数据。简单起见：匿名响应一律不落缓存。
+  if (token) {
+    cacheSet(path, { expiresAt: Date.now() + ttlMs, value });
   }
-  cacheSet(path, { expiresAt: Date.now() + ttlMs, value });
   return value;
 }
 
@@ -466,10 +481,23 @@ async function fetchOwnRepos(username        )                        {
 
 async function fetchEvents(username        )                         {
   const name = encodeURIComponent(username);
-  const events = await ghJson               (
-    `/users/${name}/events?per_page=${PER_PAGE}`,
-  );
-  return Array.isArray(events) ? events : [];
+  const events                = [];
+  for (let page = 1; page <= MAX_EVENT_PAGES; page++) {
+    const batch = await ghJson               (
+      `/users/${name}/events?per_page=${PER_PAGE}&page=${page}`,
+    ) ?? [];
+    if (!Array.isArray(batch)) break;
+    events.push(...batch);
+    if (batch.length < PER_PAGE) break;
+  }
+  // events 接口同一事件可能重复出现,提交数按它累计会被虚高
+  const seen = new Set        ();
+  return events.filter((e) => {
+    const id = e.id ?? `${e.type}:${e.repo?.name}:${e.created_at}`;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 /** 按 owner/repo 精确取仓库，供 pinned 使用；不存在时返回 null。 */
@@ -1000,11 +1028,13 @@ async function renderStatsCard(
   const stars = sum(repos, (r) => r.stargazers_count);
   const forks = sum(repos, (r) => r.forks_count);
   // events 只覆盖最近 90 天，就按这个口径标注，不再对外估一个“总提交数”
+  // 优先 payload.size：commits 数组被 GitHub 截到最多 20 条，大推送会低估
   const commits = events.reduce(
-    (total, e) =>
-      e.type === "PushEvent"
-        ? total + (e.payload?.commits?.length ?? 1)
-        : total,
+    (total, e) => {
+      if (e.type !== "PushEvent") return total;
+      const size = e.payload?.size ?? e.payload?.commits?.length ?? 1;
+      return total + size;
+    },
     0,
   );
 

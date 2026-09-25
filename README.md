@@ -1,5 +1,7 @@
 # GitHub Cards 🃏
 
+[English](./README.en.md) | 简体中文
+
 GitHub Profile 动态 SVG 卡片生成器。
 
 让你的 GitHub 主页 README 动起来！部署后只需在 README 里引用图片链接，卡片内容会自动更新。
@@ -226,6 +228,7 @@ edgeone makers generate-routes   # 只校验 edgeone.json + 生成路由表，�
 
 ```
 new-make/
+├─ README.md               中文文档（README.en.md 为英文版）
 ├─ deno_index.ts          真源 · 路由表 + handler(req, env?, basePath?) + 首页
 ├─ cards/                 真源 · GitHub 数据层、7 套主题、4 张卡的 SVG 拼装
 │  ├─ art.ts              【生成物】插画 base64，换图跑 tools/art.mjs，别手改
@@ -279,7 +282,7 @@ URL 后面的 query，和 `render.config.json` 里的字段一一对应（少个
 | `show_icons` | 显示图标，传 `true`/`false` | false |
 
 数据口径：提交数来自 GitHub Events 接口，只覆盖**最近 90 天**，卡片上会如实标注；
-排名是按 followers / stars / 仓库数估算的分位（“全球前 N%”），仅供娱乐。
+排名是按 followers / stars / 仓库数估算的分位（"全球前 N%"），仅供娱乐。
 
 ### 编程语言卡片
 
@@ -296,7 +299,7 @@ URL 后面的 query，和 `render.config.json` 里的字段一一对应（少个
 | `hide` | 隐藏的语言，逗号分隔，忽略大小写 | 空 |
 | `layout` | 布局：`pie` 或 `bar` | pie |
 
-Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
+Top 8 之外的语言会归入"其他"，保证百分比合计为 100%。
 
 ### 活跃度卡片
 
@@ -304,7 +307,7 @@ Top 8 之外的语言会归入“其他”，保证百分比合计为 100%。
 ![最近活跃](<你的服务地址>/activity?username=你的用户名&theme=catppuccin)
 ```
 
-统计基于最近 100 条公开事件（GitHub 事件接口最多保留 90 天）。
+统计基于最近 300 条公开事件（GitHub 事件接口最多保留 90 天）。
 
 ### 精选仓库卡片
 
