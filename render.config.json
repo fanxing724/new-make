@@ -11,6 +11,7 @@
     "repos": { "theme": "starlight", "count": "6", "sort": "updated" },
     "repos.light": { "theme": "light", "count": "6", "sort": "updated" },
     "streak": { "theme": "starlight" },
-    "streak.light": { "theme": "light" }
+    "streak.light": { "theme": "light" },
+    "badge": { "theme": "default", "metrics": "stars,repos,followers,commits90d" }
   }
 }
