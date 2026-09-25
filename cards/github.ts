@@ -227,6 +227,18 @@ function languagePath(languagesUrl: string): string {
   return languagesUrl.startsWith("/") ? languagesUrl : "";
 }
 
+/** 单仓库的语言字节数;给 languages 卡的 repo 模式用。空对象表示无语言数据。 */
+export async function fetchRepoLanguages(
+  username: string,
+  repoName: string,
+): Promise<Record<string, number> | null> {
+  const repo = await fetchRepo(username, repoName);
+  if (!repo) return null;
+  const path = languagePath(repo.languages_url);
+  if (!path) return {};
+  return ghJson<Record<string, number>>(path, LANG_TTL_MS);
+}
+
 /**
  * 汇总各仓库的字节数。逐仓库串行请求会放大延迟，这里做有限并发；
  * 单个仓库缺数据不影响整张卡，但限流必须冒泡到入口层。

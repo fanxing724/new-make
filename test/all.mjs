@@ -91,6 +91,14 @@ console.log("核心层 deno_index.ts");
   const err = await handler(get(BAD_USER));
   check("错误卡片 no-store", err.headers.get("cache-control") === "no-store");
   check("未知路径 404", (await handler(get("/nope"))).status === 404);
+  // 新增路由:非法用户名走同一道闸,不合法也在出网前拦下
+  for (const route of ["/streak", "/badge"]) {
+    await expectCard(
+      `${route} 非法用户名 → 错误卡片`,
+      await handler(get(`${route}?username=not_a_user`)),
+      ERR_TEXT,
+    );
+  }
   const home = await handler(get("/"));
   check("首页 HTML", (home.headers.get("content-type") || "").includes("text/html"));
   check("indexPage 带前缀", indexPage("https://x.test/sub").includes("https://x.test/sub/stats"));
@@ -106,7 +114,7 @@ console.log("EdgeOne 函数 edge-functions/*.js");
 if (!existsSync(EO)) {
   console.log("  skip 还没生成,先跑 node tools/build.mjs");
 } else {
-  for (const name of ["index", "stats", "languages", "activity", "repos", "health"]) {
+  for (const name of ["index", "stats", "languages", "activity", "repos", "streak", "badge", "health"]) {
     const mod = await import(`${EO}${name}.js`);
     check(`${name}.js 导出 onRequest`, typeof mod.onRequest === "function");
   }
@@ -260,6 +268,7 @@ console.log("预渲染 tools/render.mjs (假上游)");
         languages: { theme: "default", layout: "bar" },
         activity: { theme: "default" },
         repos: { theme: "default", count: "6" },
+        streak: { theme: "default" },
       },
     }),
   );
@@ -287,10 +296,19 @@ console.log("预渲染 tools/render.mjs (假上游)");
   const ok = run("normal");
   check("成功渲染退出码 0", ok.code === 0, ok.stdout.slice(-200));
   check(
-    "产物含 4 张卡",
-    ["stats", "languages", "activity", "repos"].every((c) =>
+    "产物含 5 张卡",
+    ["stats", "languages", "activity", "repos", "streak"].every((c) =>
       existsSync(join(outDir, "fanxing724", `${c}.svg`)),
     ),
+  );
+  const streakSvg = existsSync(join(outDir, "fanxing724/streak.svg"))
+    ? readFileSync(join(outDir, "fanxing724/streak.svg"), "utf8")
+    : "";
+  // payload.size=5 应体现在提交徽章里;热力图应有约 13*7 个格子
+  check(
+    "streak 卡含热力图格子",
+    (streakSvg.match(/<rect/g) || []).length >= 91,
+    `实得 ${(streakSvg.match(/<rect/g) || []).length}`,
   );
   const rendered = existsSync(join(outDir, "fanxing724/stats.svg"))
     ? readFileSync(join(outDir, "fanxing724/stats.svg"), "utf8")

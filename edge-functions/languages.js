@@ -520,6 +520,18 @@ function languagePath(languagesUrl        )         {
   return languagesUrl.startsWith("/") ? languagesUrl : "";
 }
 
+/** 单仓库的语言字节数;给 languages 卡的 repo 模式用。空对象表示无语言数据。 */
+async function fetchRepoLanguages(
+  username        ,
+  repoName        ,
+)                                         {
+  const repo = await fetchRepo(username, repoName);
+  if (!repo) return null;
+  const path = languagePath(repo.languages_url);
+  if (!path) return {};
+  return ghJson                        (path, LANG_TTL_MS);
+}
+
 /**
  * 汇总各仓库的字节数。逐仓库串行请求会放大延迟，这里做有限并发；
  * 单个仓库缺数据不影响整张卡，但限流必须冒泡到入口层。
@@ -582,14 +594,19 @@ const EVENT_META                                                  = {
 
 const DEFAULT_META = { emoji: "📌", desc: "进行了操作" };
 
+                                  
+                 
+ 
+
 async function renderActivityCard(
   username        ,
   theme       ,
+  options                  = {},
 )                  {
   const events = await fetchEvents(username);
 
   if (events.length === 0) {
-    const lines = startCard(theme, ACTIVITY_WIDTH, 120, "⚡ 最近活跃", `@${username}`, "gc-act");
+    const lines = startCard(theme, ACTIVITY_WIDTH, 120, options.title ?? "⚡ 最近活跃", `@${username}`, "gc-act");
     lines.push(
       textEl(20, 90, "暂无最近活动记录", { size: 13, fill: theme.text }),
     );
@@ -611,7 +628,7 @@ async function renderActivityCard(
     theme,
     ACTIVITY_WIDTH,
     height,
-    "⚡ 最近活跃",
+    options.title ?? "⚡ 最近活跃",
     `@${username} · 基于最近 ${events.length} 条事件`,
     "gc-act",
   );
@@ -685,6 +702,148 @@ async function renderActivityCard(
   return finishCard(lines);
 }
 
+// ==== 源: cards/badge.ts ====
+// 徽章卡片 - shields.io 风格的单行小徽章
+//
+// 用途是 README 顶部的签名栏,和大卡互补。尺寸刻意做小(一行高),所以
+// 不走 startCard 的骨架 —— 那套是为 400px+ 的大卡设计的。
+
+                                        
+
+const H = 20;
+
+function esc(s        )         {
+  return s.replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] ));
+}
+
+// shields 的等宽估算:大写/数字按 7px,小写按 6.5px,空格 4px —— 粗略但够用,
+// 宁可左右留白稍多也不要文字撞边框
+function textWidth(s        )         {
+  let w = 0;
+  for (const ch of s) {
+    if (/[A-Z0-9@]/.test(ch)) w += 7;
+    else if (ch === " ") w += 4;
+    else if (ch.codePointAt(0)  > 0x2e80) w += 11;
+    else w += 6.5;
+  }
+  return Math.round(w);
+}
+
+function badge(
+  label        ,
+  value        ,
+  colors                                                                          ,
+)                                 {
+  const font =
+    "font-family=&quot;Segoe UI&quot;, -apple-system, sans-serif font-size=&quot;11&quot;";
+  const lw = textWidth(label) + 16;
+  const vw = textWidth(value) + 16;
+  const w = lw + vw;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${H}" viewBox="0 0 ${w} ${H}" role="img" aria-label="${esc(label)}: ${esc(value)}">` +
+    `<rect width="${lw}" height="${H}" rx="3" fill="${colors.leftBg}"/>` +
+    `<rect x="${lw - 4}" width="${vw + 4}" height="${H}" rx="3" fill="${colors.rightBg}"/>` +
+    `<rect x="${lw - 4}" width="4" height="${H}" fill="${colors.rightBg}"/>` +
+    `<g ${font} fill="${colors.leftText}"><text x="${lw / 2}" y="14" text-anchor="middle">${esc(label)}</text></g>` +
+    `<g ${font} font-weight="600" fill="${colors.rightText}"><text x="${lw + vw / 2}" y="14" text-anchor="middle">${esc(value)}</text></g>` +
+    `</svg>`;
+  return { svg, width: w };
+}
+
+const METRICS                  
+                
+                  
+                                                      
+                                                               
+                                                                                 
+                        
+   = {
+  stars: {
+    label: "stars",
+    compute: (c) => c.repos.reduce((t, r) => t + r.stargazers_count, 0),
+  },
+  forks: {
+    label: "forks",
+    compute: (c) => c.repos.reduce((t, r) => t + r.forks_count, 0),
+  },
+  repos: {
+    label: "repos",
+    compute: (c) => c.user.public_repos,
+  },
+  followers: {
+    label: "followers",
+    compute: (c) => c.user.followers,
+  },
+  commits90d: {
+    label: "commits (90d)",
+    compute: (c) =>
+      c.events.reduce((t, e) => {
+        if (e.type !== "PushEvent") return t;
+        return t + (e.payload?.size ?? e.payload?.commits?.length ?? 1);
+      }, 0),
+  },
+};
+
+                               
+                        
+                     
+             
+                               
+ 
+
+/**
+ * 一张图里排多个徽章。行内排布时水平拼接,纵向时上下堆叠。
+ */
+async function renderBadgeCard(
+  username        ,
+  theme       ,
+  options               = {},
+)                  {
+  const wanted = (options.metrics?.length ? options.metrics : Object.keys(METRICS))
+    .filter((m) => m in METRICS);
+  if (wanted.length === 0) {
+    wanted.push("stars", "repos", "followers");
+  }
+
+  const [user, repos, events] = await Promise.all([
+    fetchUser(username),
+    fetchOwnRepos(username),
+    fetchEvents(username).catch(() => []),
+  ]);
+
+  const colors = {
+    leftBg: theme.card,
+    rightBg: theme.accent,
+    leftText: theme.text,
+    rightText: theme.bg,
+  };
+
+  const badges = wanted.map((name) => {
+    const m = METRICS[name];
+    return badge(
+      m.label,
+      String(m.compute({ user, repos, events })),
+      colors,
+    );
+  });
+
+  if (options.direction === "column") {
+    const width = Math.max(...badges.map((b) => b.width));
+    const totalH = badges.length * (H + 4);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalH}" viewBox="0 0 ${width} ${totalH}" role="img" aria-label="${esc(username)} badges">` +
+      badges.map((b, i) => `<g transform="translate(0 ${i * (H + 4)})">${b.svg.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</g>`).join("") +
+      `</svg>`;
+  }
+
+  const totalW = badges.reduce((t, b) => t + b.width + 6, -6);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${H}" viewBox="0 0 ${totalW} ${H}" role="img" aria-label="${esc(username)} badges">` +
+    badges.map((b, i) => {
+      const x = badges.slice(0, i).reduce((t, bb) => t + bb.width + 6, 0);
+      return `<g transform="translate(${x} 0)">${b.svg.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</g>`;
+    }).join("") +
+    `</svg>`;
+}
+
 // ==== 源: cards/languages.ts ====
 // 编程语言统计卡片 - 圆环图 / 条形图展示仓库语言分布
 
@@ -702,6 +861,9 @@ const TOP_N = 8;
                            
                   
                          
+                          
+                
+                 
  
 
 async function renderLanguagesCard(
@@ -709,10 +871,26 @@ async function renderLanguagesCard(
   theme       ,
   options                 ,
 )                  {
-  const { hide = [], layout = "pie" } = options;
+  const { hide = [], layout = "pie", repo, title } = options;
 
-  const repos = await fetchOwnRepos(username);
-  const bytesByLang = await sumLanguageBytes(repos);
+  let bytesByLang                        ;
+  let subtitle        ;
+  if (repo) {
+    // 单仓库模式:直接打那个仓库的 languages 接口,不拉列表再聚合
+    const langs = await fetchRepoLanguages(username, repo);
+    if (langs === null) {
+      throw new CardError(`仓库 ${username}/${repo} 不存在`, {
+        kind: "not_found",
+        hint: "请检查 repo 参数",
+      });
+    }
+    bytesByLang = langs;
+    subtitle = `@${username}/${repo}`;
+  } else {
+    const repos = await fetchOwnRepos(username);
+    bytesByLang = await sumLanguageBytes(repos);
+    subtitle = `@${username}`;
+  }
 
   // README 文档写的是 hide=html,css，GitHub 返回的是 HTML/CSS，必须忽略大小写
   const hidden = new Set(hide.map((h) => h.toLowerCase()));
@@ -745,15 +923,17 @@ async function renderLanguagesCard(
     });
   }
 
+  const heading = title ?? "🔤 编程语言";
   return layout === "bar"
-    ? renderBar(slices, username, theme)
-    : renderPie(slices, sorted.length, username, theme);
+    ? renderBar(slices, subtitle, heading, theme)
+    : renderPie(slices, sorted.length, subtitle, heading, theme);
 }
 
 function renderPie(
   slices         ,
   langCount        ,
-  username        ,
+  subtitle        ,
+  heading        ,
   theme       ,
 )         {
   const cx = 100;
@@ -768,7 +948,7 @@ function renderPie(
   // 高度随图例行数增长，超出画布的图例不再被静默裁掉
   const height = Math.max(220, legendY0 + slices.length * legendRow + 16);
 
-  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, heading, subtitle, "gc-lang");
 
   // 底轨：让圆环在数据稀疏时也有完整的轮廓
   lines.push(
@@ -825,7 +1005,12 @@ function renderPie(
   return finishCard(lines);
 }
 
-function renderBar(slices         , username        , theme       )         {
+function renderBar(
+  slices         ,
+  subtitle        ,
+  heading        ,
+  theme       ,
+)         {
   const barH = 20;
   const gap = 8;
   const barX = 130;
@@ -833,7 +1018,7 @@ function renderBar(slices         , username        , theme       )         {
   const barMaxW = LANGUAGES_WIDTH - barX - 70;
   const height = 60 + slices.length * (barH + gap) + 20;
 
-  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, heading, subtitle, "gc-lang");
 
   slices.forEach((slice, i) => {
     const y = 65 + i * (barH + gap);
@@ -890,6 +1075,7 @@ const CELL_Y0 = 62;
                  
                                          
                     
+                 
  
 
 async function renderReposCard(
@@ -897,7 +1083,7 @@ async function renderReposCard(
   theme       ,
   options              ,
 )                  {
-  const { count = 6, sort = "updated", pinned } = options;
+  const { count = 6, sort = "updated", pinned, title } = options;
 
   let repos              ;
   if (pinned && pinned.length > 0) {
@@ -932,7 +1118,7 @@ async function renderReposCard(
   const width = PAD * 2 + COLS * CARD_W + (COLS - 1) * GAP_X;
   const height = CELL_Y0 + rows * CARD_H + (rows - 1) * GAP_Y + PAD;
 
-  const lines = startCard(theme, width, height, "📦 精选仓库", `@${username}`, "gc-repos");
+  const lines = startCard(theme, width, height, title ?? "📦 精选仓库", `@${username}`, "gc-repos");
 
   repos.forEach((repo, i) => {
     const x = PAD + (i % COLS) * (CARD_W + GAP_X);
@@ -1002,6 +1188,7 @@ const TILE_ROW = 46;
                         
                      
                       
+                 
  
 
 /** events 接口偶发失败不该让整张卡变成错误卡，但限流要冒泡。 */
@@ -1017,7 +1204,7 @@ async function renderStatsCard(
   theme       ,
   options              ,
 )                  {
-  const { hideRank = false, showIcons = false } = options;
+  const { hideRank = false, showIcons = false, title } = options;
 
   const [user, repos, events] = await Promise.all([
     fetchUser(username),
@@ -1051,7 +1238,7 @@ async function renderStatsCard(
     theme,
     STATS_WIDTH,
     HEIGHT,
-    "📊 GitHub 统计",
+    title ?? "📊 GitHub 统计",
     `@${user.login}`,
     "gc-stats",
   );
@@ -1130,6 +1317,192 @@ function estimatePercentile(
     SCORE_WEIGHTS.repos * Math.log1p(SCORE_CEILING.repos);
   const percentile = Math.round((1 - score / maxScore) * 100);
   return Math.max(1, Math.min(100, percentile));
+}
+
+// ==== 源: cards/streak.ts ====
+// 连续活跃卡片 - streak 统计 + 90 天事件热力图
+//
+// 口径与 stats 卡一致:数据来自 Events 接口,只有最近 90 天(预渲染名单里渲染一次,
+// 自然就是"渲染时刻往前 90 天")。活跃日的定义是"当天至少有 1 条公开事件" ——
+// Events 接口覆盖不到私有仓库,这不是 bug,卡片副标题里如实标注了。
+
+                                        
+                                              
+
+const STREAK_WIDTH = 400;
+const WEEKS = 13;
+const CELL = 10;
+const CELL_GAP = 3;
+const GRID_X = 20;
+const GRID_Y = 118;
+
+                         
+                 
+ 
+
+/** UTC 天粒度的 key。GitHub 卡片的读者遍布时区,选哪个都不完美,UTC 是最不自作聪明的 */
+function dayKey(iso        )         {
+  return iso.slice(0, 10);
+}
+
+function activeDays(events               )                      {
+  const days = new Map                ();
+  for (const e of events) {
+    const key = dayKey(e.created_at);
+    days.set(key, (days.get(key) ?? 0) + 1);
+  }
+  return days;
+}
+
+/** 从 anchor 往前数连续活跃天。anchor 本身不活跃时返回 0(当前 streak 允许"昨天为止") */
+function streakBack(days             , anchor      )         {
+  let n = 0;
+  const cursor = new Date(anchor);
+  if (!days.has(cursor.toISOString().slice(0, 10))) {
+    // 今天还没动不代表 streak 断了:今天刚开始,昨天的链还算数
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    if (!days.has(cursor.toISOString().slice(0, 10))) return 0;
+  }
+  while (days.has(cursor.toISOString().slice(0, 10))) {
+    n++;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return n;
+}
+
+function longestStreak(days             )         {
+  if (days.size === 0) return 0;
+  let best = 1;
+  let run = 1;
+  const sorted = [...days].sort();
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1] + "T00:00:00Z");
+    const curr = new Date(sorted[i] + "T00:00:00Z");
+    const diff = (curr.getTime() - prev.getTime()) / 86_400_000;
+    run = diff === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+async function renderStreakCard(
+  username        ,
+  theme       ,
+  options                = {},
+)                  {
+  const events = await fetchEvents(username);
+  const days = activeDays(events);
+  if (days.size === 0) {
+    throw new CardError("没有找到公开活动", {
+      kind: "empty",
+      hint: "该用户最近 90 天没有公开事件",
+    });
+  }
+
+  const now = new Date();
+  const current = streakBack(days, now);
+  const longest = longestStreak(new Set(days.keys()));
+
+  const height = GRID_Y + 7 * (CELL + CELL_GAP) + 38;
+  const lines = startCard(
+    theme,
+    STREAK_WIDTH,
+    height,
+    options.title ?? "🔥 连续活跃",
+    `@${username} · 基于最近 90 天公开事件`,
+    "gc-streak",
+  );
+  const { accent, green, orange, text } = theme;
+
+  const tiles = [
+    { label: "当前连续", value: `${current} 天`, color: green },
+    { label: "最长连续", value: `${longest} 天`, color: orange },
+    { label: "活跃天数", value: `${days.size} 天`, color: accent },
+    { label: "事件总数", value: String(events.length), color: text },
+  ];
+  const tileW = 86;
+  tiles.forEach((tile, i) => {
+    const x = 16 + i * (tileW + 8);
+    lines.push(
+      `  <rect x="${x}" y="60" width="${tileW}" height="46" rx="9" fill="${theme.bg}" fill-opacity="0.55" stroke="${theme.border}" stroke-opacity="0.6"/>`,
+    );
+    lines.push(
+      textEl(x + tileW / 2, 82, tile.value, {
+        size: 16,
+        weight: 700,
+        anchor: "middle",
+        fill: tile.color,
+      }),
+    );
+    lines.push(
+      textEl(x + tileW / 2, 97, tile.label, {
+        size: 11,
+        anchor: "middle",
+        fill: theme.text,
+      }),
+    );
+  });
+
+  // 热力图:13 周 × 7 天,列是周(旧→新),行是周几(周一在上一半,对齐 GitHub 习惯)
+  const maxCount = Math.max(1, ...days.values());
+  const level = (count        )         => {
+    if (count === 0) return 0;
+    return Math.min(4, 1 + Math.floor((count / maxCount) * 3));
+  };
+  const OPACITY = [0.12, 0.45, 0.65, 0.85, 1];
+
+  // 结束在今天;列起点对齐周一,让网格边缘是完整周
+  const today = new Date();
+  const endOfGrid = new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  ));
+  // 把网格末端推到本周日:不足的格子里"未来"留空
+  const daysFromMonday = (endOfGrid.getUTCDay() + 6) % 7;
+  const lastColEnd = new Date(endOfGrid);
+  lastColEnd.setUTCDate(lastColEnd.getUTCDate() + (6 - daysFromMonday));
+  const start = new Date(lastColEnd);
+  start.setUTCDate(start.getUTCDate() - (WEEKS * 7 - 1));
+
+  for (let w = 0; w < WEEKS; w++) {
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(start);
+      day.setUTCDate(day.getUTCDate() + w * 7 + d);
+      const future = day.getTime() > endOfGrid.getTime();
+      const count = future ? 0 : (days.get(day.toISOString().slice(0, 10)) ?? 0);
+      const x = GRID_X + w * (CELL + CELL_GAP);
+      const y = GRID_Y + d * (CELL + CELL_GAP);
+      const lvl = future ? -1 : level(count);
+      lines.push(
+        `  <rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="2" fill="${green}" fill-opacity="${
+          lvl >= 0 ? OPACITY[lvl] : 0
+        }"/>`,
+      );
+    }
+  }
+
+  lines.push(
+    textEl(GRID_X, GRID_Y + 7 * (CELL + CELL_GAP) + 14, "少", {
+      size: 10,
+      fill: theme.text,
+    }),
+  );
+  for (let lvl = 0; lvl < 5; lvl++) {
+    const x = GRID_X + 16 + lvl * (CELL + CELL_GAP);
+    const y = GRID_Y + 7 * (CELL + CELL_GAP) + 4;
+    lines.push(
+      `  <rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="2" fill="${green}" fill-opacity="${OPACITY[lvl]}"/>`,
+    );
+  }
+  lines.push(
+    textEl(GRID_X + 16 + 5 * (CELL + CELL_GAP) + 4, GRID_Y + 7 * (CELL + CELL_GAP) + 14, "多", {
+      size: 10,
+      fill: theme.text,
+    }),
+  );
+
+  return finishCard(lines);
 }
 
 // ==== 源: cards/art.ts ====
@@ -1300,6 +1673,7 @@ const ROUTES = new Map                      ([
       renderStatsCard(username, theme, {
         hideRank: flag(params, "hide_rank"),
         showIcons: flag(params, "show_icons"),
+        title: params.get("title") ?? undefined,
       }),
   ],
   [
@@ -1308,9 +1682,17 @@ const ROUTES = new Map                      ([
       renderLanguagesCard(username, theme, {
         hide: listParam(params, "hide"),
         layout: params.get("layout") === "bar" ? "bar" : "pie",
+        repo: params.get("repo") ?? undefined,
+        title: params.get("title") ?? undefined,
       }),
   ],
-  ["/activity", (username, theme) => renderActivityCard(username, theme)],
+  [
+    "/activity",
+    (username, theme, params) =>
+      renderActivityCard(username, theme, {
+        title: params.get("title") ?? undefined,
+      }),
+  ],
   [
     "/repos",
     (username, theme, params) =>
@@ -1318,6 +1700,22 @@ const ROUTES = new Map                      ([
         count: intParam(params, "count", { def: 6, min: 1, max: 12 }),
         sort: sortParam(params),
         pinned: listParam(params, "pinned"),
+        title: params.get("title") ?? undefined,
+      }),
+  ],
+  [
+    "/streak",
+    (username, theme, params) =>
+      renderStreakCard(username, theme, {
+        title: params.get("title") ?? undefined,
+      }),
+  ],
+  [
+    "/badge",
+    (username, theme, params) =>
+      renderBadgeCard(username, theme, {
+        metrics: listParam(params, "metrics"),
+        direction: params.get("direction") === "column" ? "column" : "row",
       }),
   ],
 ]);

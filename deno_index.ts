@@ -3,11 +3,13 @@
 // 使用方式：https://你的域名.deno.dev/stats?username=fanxing724
 
 import { renderActivityCard } from "./cards/activity.ts";
+import { renderBadgeCard } from "./cards/badge.ts";
 import { CardError, renderErrorCard } from "./cards/common.ts";
 import { assertUsername, setGitHubToken } from "./cards/github.ts";
 import { renderLanguagesCard } from "./cards/languages.ts";
 import { renderReposCard } from "./cards/repos.ts";
 import { renderStatsCard } from "./cards/stats.ts";
+import { renderStreakCard } from "./cards/streak.ts";
 import { getTheme, THEMES, THEME_NAMES, type Theme } from "./cards/theme.ts";
 import type { EnvBag } from "./cards/env.ts";
 
@@ -30,6 +32,7 @@ const ROUTES = new Map<string, CardRenderer>([
       renderStatsCard(username, theme, {
         hideRank: flag(params, "hide_rank"),
         showIcons: flag(params, "show_icons"),
+        title: params.get("title") ?? undefined,
       }),
   ],
   [
@@ -38,9 +41,17 @@ const ROUTES = new Map<string, CardRenderer>([
       renderLanguagesCard(username, theme, {
         hide: listParam(params, "hide"),
         layout: params.get("layout") === "bar" ? "bar" : "pie",
+        repo: params.get("repo") ?? undefined,
+        title: params.get("title") ?? undefined,
       }),
   ],
-  ["/activity", (username, theme) => renderActivityCard(username, theme)],
+  [
+    "/activity",
+    (username, theme, params) =>
+      renderActivityCard(username, theme, {
+        title: params.get("title") ?? undefined,
+      }),
+  ],
   [
     "/repos",
     (username, theme, params) =>
@@ -48,6 +59,22 @@ const ROUTES = new Map<string, CardRenderer>([
         count: intParam(params, "count", { def: 6, min: 1, max: 12 }),
         sort: sortParam(params),
         pinned: listParam(params, "pinned"),
+        title: params.get("title") ?? undefined,
+      }),
+  ],
+  [
+    "/streak",
+    (username, theme, params) =>
+      renderStreakCard(username, theme, {
+        title: params.get("title") ?? undefined,
+      }),
+  ],
+  [
+    "/badge",
+    (username, theme, params) =>
+      renderBadgeCard(username, theme, {
+        metrics: listParam(params, "metrics"),
+        direction: params.get("direction") === "column" ? "column" : "row",
       }),
   ],
 ]);

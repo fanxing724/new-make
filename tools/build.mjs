@@ -119,8 +119,8 @@ function writeFile(path, content) {
 const BANNER =
   "// 生成物,勿手改。真源是仓库根的 cards/ + deno_index.ts,改完跑 node tools/build.mjs\n";
 
-// 一个文件一条路由,五个文件名同一份核心,靠 URL 路径分流
-const EDGEONE_ROUTES = ["index", "stats", "languages", "activity", "repos"];
+// 一个文件一条路由,七个文件名同一份核心,靠 URL 路径分流
+const EDGEONE_ROUTES = ["index", "stats", "languages", "activity", "repos", "streak", "badge"];
 
 function buildEdgeOne(core) {
   const dir = join(ROOT, EO_DIR);

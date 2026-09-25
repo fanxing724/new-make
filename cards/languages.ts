@@ -9,7 +9,7 @@ import {
   textEl,
   truncate,
 } from "./common.ts";
-import { fetchOwnRepos, sumLanguageBytes } from "./github.ts";
+import { fetchOwnRepos, fetchRepoLanguages, sumLanguageBytes } from "./github.ts";
 import type { Theme } from "./theme.ts";
 
 const LANGUAGES_WIDTH = 400;
@@ -24,6 +24,9 @@ interface Slice {
 interface LanguageOptions {
   hide?: string[];
   layout?: "pie" | "bar";
+  /** 只统计这个仓库,给出则忽略列表聚合 */
+  repo?: string;
+  title?: string;
 }
 
 export async function renderLanguagesCard(
@@ -31,10 +34,26 @@ export async function renderLanguagesCard(
   theme: Theme,
   options: LanguageOptions,
 ): Promise<string> {
-  const { hide = [], layout = "pie" } = options;
+  const { hide = [], layout = "pie", repo, title } = options;
 
-  const repos = await fetchOwnRepos(username);
-  const bytesByLang = await sumLanguageBytes(repos);
+  let bytesByLang: Record<string, number>;
+  let subtitle: string;
+  if (repo) {
+    // 单仓库模式:直接打那个仓库的 languages 接口,不拉列表再聚合
+    const langs = await fetchRepoLanguages(username, repo);
+    if (langs === null) {
+      throw new CardError(`仓库 ${username}/${repo} 不存在`, {
+        kind: "not_found",
+        hint: "请检查 repo 参数",
+      });
+    }
+    bytesByLang = langs;
+    subtitle = `@${username}/${repo}`;
+  } else {
+    const repos = await fetchOwnRepos(username);
+    bytesByLang = await sumLanguageBytes(repos);
+    subtitle = `@${username}`;
+  }
 
   // README 文档写的是 hide=html,css，GitHub 返回的是 HTML/CSS，必须忽略大小写
   const hidden = new Set(hide.map((h) => h.toLowerCase()));
@@ -67,15 +86,17 @@ export async function renderLanguagesCard(
     });
   }
 
+  const heading = title ?? "🔤 编程语言";
   return layout === "bar"
-    ? renderBar(slices, username, theme)
-    : renderPie(slices, sorted.length, username, theme);
+    ? renderBar(slices, subtitle, heading, theme)
+    : renderPie(slices, sorted.length, subtitle, heading, theme);
 }
 
 function renderPie(
   slices: Slice[],
   langCount: number,
-  username: string,
+  subtitle: string,
+  heading: string,
   theme: Theme,
 ): string {
   const cx = 100;
@@ -90,7 +111,7 @@ function renderPie(
   // 高度随图例行数增长，超出画布的图例不再被静默裁掉
   const height = Math.max(220, legendY0 + slices.length * legendRow + 16);
 
-  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, heading, subtitle, "gc-lang");
 
   // 底轨：让圆环在数据稀疏时也有完整的轮廓
   lines.push(
@@ -147,7 +168,12 @@ function renderPie(
   return finishCard(lines);
 }
 
-function renderBar(slices: Slice[], username: string, theme: Theme): string {
+function renderBar(
+  slices: Slice[],
+  subtitle: string,
+  heading: string,
+  theme: Theme,
+): string {
   const barH = 20;
   const gap = 8;
   const barX = 130;
@@ -155,7 +181,7 @@ function renderBar(slices: Slice[], username: string, theme: Theme): string {
   const barMaxW = LANGUAGES_WIDTH - barX - 70;
   const height = 60 + slices.length * (barH + gap) + 20;
 
-  const lines = startCard(theme, LANGUAGES_WIDTH, height, "🔤 编程语言", `@${username}`, "gc-lang");
+  const lines = startCard(theme, LANGUAGES_WIDTH, height, heading, subtitle, "gc-lang");
 
   slices.forEach((slice, i) => {
     const y = 65 + i * (barH + gap);

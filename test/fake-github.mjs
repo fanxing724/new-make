@@ -49,18 +49,21 @@ const REPOS = [
 
 const EVENTS = [
   {
+    id: "1",
     type: "PushEvent",
     repo: { name: `${LOGIN}/new-make` },
     created_at: new Date(Date.now() - 3_600_000).toISOString(),
-    payload: { commits: [{ sha: "aaaaaaa" }, { sha: "bbbbbbb" }] },
+    payload: { size: 5, commits: [{ sha: "aaaaaaa" }, { sha: "bbbbbbb" }] },
   },
   {
+    id: "2",
     type: "WatchEvent",
     repo: { name: "someone/other" },
     created_at: new Date(Date.now() - 7_200_000).toISOString(),
     payload: {},
   },
   {
+    id: "3",
     type: "IssuesEvent",
     repo: { name: `${LOGIN}/notes` },
     created_at: new Date(Date.now() - 10_800_000).toISOString(),

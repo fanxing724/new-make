@@ -26,6 +26,7 @@ interface ReposOptions {
   count?: number;
   sort?: "updated" | "created" | "stars";
   pinned?: string[];
+  title?: string;
 }
 
 export async function renderReposCard(
@@ -33,7 +34,7 @@ export async function renderReposCard(
   theme: Theme,
   options: ReposOptions,
 ): Promise<string> {
-  const { count = 6, sort = "updated", pinned } = options;
+  const { count = 6, sort = "updated", pinned, title } = options;
 
   let repos: GitHubRepo[];
   if (pinned && pinned.length > 0) {
@@ -68,7 +69,7 @@ export async function renderReposCard(
   const width = PAD * 2 + COLS * CARD_W + (COLS - 1) * GAP_X;
   const height = CELL_Y0 + rows * CARD_H + (rows - 1) * GAP_Y + PAD;
 
-  const lines = startCard(theme, width, height, "📦 精选仓库", `@${username}`, "gc-repos");
+  const lines = startCard(theme, width, height, title ?? "📦 精选仓库", `@${username}`, "gc-repos");
 
   repos.forEach((repo, i) => {
     const x = PAD + (i % COLS) * (CARD_W + GAP_X);

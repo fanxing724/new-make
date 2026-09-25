@@ -19,6 +19,8 @@ GitHub Profile 动态 SVG 卡片生成器。
 - 🔤 **编程语言卡片** — 可视化你的代码语言分布（圆环图/条形图）
 - ⚡ **活跃度卡片** — 最近事件统计 + 最近 3 条动态
 - 📦 **精选仓库卡片** — 双列展示你的仓库列表
+- 🔥 **连续活跃卡片** — 当前/最长连续天数 + 90 天事件热力图
+- 🏅 **徽章卡片** — shields.io 风格的单行小徽章,适合 README 顶部签名栏
 - 🎨 **7 种主题** — default、light、dracula、nord、monokai、catppuccin，外加一个插画背景主题 `starlight`
 
 ## 🥇 主路线：GitHub Actions 预渲染
@@ -37,7 +39,7 @@ render.yml          每小时渲染 → Pages 发布
 ![GitHub 统计](https://<你的用户名>.github.io/<仓库名>/<用户名>/stats.svg)
 ```
 
-四张卡分别是 `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg`。
+五张卡分别是 `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg` / `streak.svg`。
 
 想跟着 GitHub 的深浅色模式换主题（按需服务里就是换 `theme` 参数），在 `cards` 的
 键名上加个变体后缀：
@@ -298,6 +300,8 @@ URL 后面的 query，和 `render.config.json` 里的字段一一对应（少个
 | `theme` | 主题 | default |
 | `hide` | 隐藏的语言，逗号分隔，忽略大小写 | 空 |
 | `layout` | 布局：`pie` 或 `bar` | pie |
+| `repo` | 只统计这个仓库（单仓库模式） | 聚合所有仓库 |
+| `title` | 自定义标题 | 🔤 编程语言 |
 
 Top 8 之外的语言会归入"其他"，保证百分比合计为 100%。
 
@@ -324,6 +328,39 @@ Top 8 之外的语言会归入"其他"，保证百分比合计为 100%。
 | `count` | 显示仓库数（1~12） | 6 |
 | `sort` | 排序：`updated`/`created`/`stars` | updated |
 | `pinned` | 指定仓库名，逗号分隔，按给定顺序展示 | 不传则自动选择 |
+
+### 连续活跃卡片
+
+```markdown
+![连续活跃](<你的服务地址>/streak?username=你的用户名&theme=catppuccin)
+```
+
+参数：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `username` | GitHub 用户名 | fanxing724 |
+| `theme` | 主题 | default |
+| `title` | 自定义标题 | 🔥 连续活跃 |
+
+口径与 stats 卡一致：基于最近 90 天公开事件。活跃日的定义是"当天至少有 1 条公开事件"，私有仓库的贡献不计入。当前连续允许"截至昨天"——今天刚开始还没动不算断。
+
+### 徽章卡片
+
+```markdown
+![badges](<你的服务地址>/badge?username=你的用户名&metrics=stars,repos,followers)
+```
+
+参数：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `username` | GitHub 用户名 | fanxing724 |
+| `theme` | 主题 | default |
+| `metrics` | 徽章列表，逗号分隔：`stars`/`forks`/`repos`/`followers`/`commits90d` | 全部 |
+| `direction` | `row` 横排 / `column` 竖排 | row |
+
+所有卡片都支持 `title` 参数自定义标题（badge 除外，它没有标题结构）。
 
 ## 🎨 主题
 

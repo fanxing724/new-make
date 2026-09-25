@@ -19,6 +19,8 @@ Two shapes, one data layer:
 - 🔤 **Languages card** — visualize your code language distribution (donut / bar)
 - ⚡ **Activity card** — recent event stats + the 3 latest events
 - 📦 **Repos card** — your repository list in a two-column grid
+- 🔥 **Streak card** — current/longest streak + a 90-day event heatmap
+- 🏅 **Badge card** — shields.io-style one-line badges, perfect for a README signature bar
 - 🎨 **7 themes** — default, light, dracula, nord, monokai, catppuccin, plus an illustrated-background theme `starlight`
 
 ## 🥇 Main route: GitHub Actions pre-rendering
@@ -37,7 +39,7 @@ The URL becomes a static file:
 ![GitHub stats](https://<username>.github.io/<repo>/<username>/stats.svg)
 ```
 
-The four cards are `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg`.
+The five cards are `stats.svg` / `languages.svg` / `activity.svg` / `repos.svg` / `streak.svg`.
 
 To follow GitHub's light/dark mode (equivalent to the `theme` parameter in the on-demand service), add a variant suffix to the card keys in `cards`:
 
@@ -268,6 +270,8 @@ Parameters:
 | `theme` | theme | default |
 | `hide` | languages to hide, comma-separated, case-insensitive | empty |
 | `layout` | layout: `pie` or `bar` | pie |
+| `repo` | count only this repo (single-repo mode) | aggregate all repos |
+| `title` | custom title | 🔤 编程语言 |
 
 Languages outside the top 8 are grouped into "Other", keeping the total at 100%.
 
@@ -294,6 +298,39 @@ Parameters:
 | `count` | number of repos to show (1~12) | 6 |
 | `sort` | sort order: `updated`/`created`/`stars` | updated |
 | `pinned` | specific repo names, comma-separated, shown in the given order | auto-selected if omitted |
+
+### Streak card
+
+```markdown
+![Streak](<your-service-url>/streak?username=<username>&theme=catppuccin)
+```
+
+Parameters:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `username` | GitHub username | fanxing724 |
+| `theme` | theme | default |
+| `title` | custom title | 🔥 连续活跃 |
+
+Same data basis as the stats card: the last 90 days of public events. An active day means "at least 1 public event that day"; private-repo contributions don't count. The current streak allows "as of yesterday" — the day just started, no activity yet doesn't break it.
+
+### Badge card
+
+```markdown
+![badges](<your-service-url>/badge?username=<username>&metrics=stars,repos,followers)
+```
+
+Parameters:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `username` | GitHub username | fanxing724 |
+| `theme` | theme | default |
+| `metrics` | badge list, comma-separated: `stars`/`forks`/`repos`/`followers`/`commits90d` | all |
+| `direction` | `row` horizontal / `column` vertical | row |
+
+All cards support a `title` parameter for custom titles (except badge, which has no title structure).
 
 ## 🎨 Themes
 

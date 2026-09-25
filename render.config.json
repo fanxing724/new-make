@@ -9,6 +9,8 @@
     "activity": { "theme": "starlight" },
     "activity.light": { "theme": "light" },
     "repos": { "theme": "starlight", "count": "6", "sort": "updated" },
-    "repos.light": { "theme": "light", "count": "6", "sort": "updated" }
+    "repos.light": { "theme": "light", "count": "6", "sort": "updated" },
+    "streak": { "theme": "starlight" },
+    "streak.light": { "theme": "light" }
   }
 }

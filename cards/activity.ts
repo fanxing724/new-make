@@ -23,14 +23,19 @@ const EVENT_META: Record<string, { emoji: string; desc: string }> = {
 
 const DEFAULT_META = { emoji: "📌", desc: "进行了操作" };
 
+export interface ActivityOptions {
+  title?: string;
+}
+
 export async function renderActivityCard(
   username: string,
   theme: Theme,
+  options: ActivityOptions = {},
 ): Promise<string> {
   const events = await fetchEvents(username);
 
   if (events.length === 0) {
-    const lines = startCard(theme, ACTIVITY_WIDTH, 120, "⚡ 最近活跃", `@${username}`, "gc-act");
+    const lines = startCard(theme, ACTIVITY_WIDTH, 120, options.title ?? "⚡ 最近活跃", `@${username}`, "gc-act");
     lines.push(
       textEl(20, 90, "暂无最近活动记录", { size: 13, fill: theme.text }),
     );
@@ -52,7 +57,7 @@ export async function renderActivityCard(
     theme,
     ACTIVITY_WIDTH,
     height,
-    "⚡ 最近活跃",
+    options.title ?? "⚡ 最近活跃",
     `@${username} · 基于最近 ${events.length} 条事件`,
     "gc-act",
   );

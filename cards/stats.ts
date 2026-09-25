@@ -21,6 +21,7 @@ interface Stat {
 interface StatsOptions {
   hideRank?: boolean;
   showIcons?: boolean;
+  title?: string;
 }
 
 /** events 接口偶发失败不该让整张卡变成错误卡，但限流要冒泡。 */
@@ -36,7 +37,7 @@ export async function renderStatsCard(
   theme: Theme,
   options: StatsOptions,
 ): Promise<string> {
-  const { hideRank = false, showIcons = false } = options;
+  const { hideRank = false, showIcons = false, title } = options;
 
   const [user, repos, events] = await Promise.all([
     fetchUser(username),
@@ -70,7 +71,7 @@ export async function renderStatsCard(
     theme,
     STATS_WIDTH,
     HEIGHT,
-    "📊 GitHub 统计",
+    title ?? "📊 GitHub 统计",
     `@${user.login}`,
     "gc-stats",
   );
