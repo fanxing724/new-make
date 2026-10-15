@@ -14,6 +14,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/render.yml"
       - "cards/**"
       - "deno_index.ts"
       - "tools/render.mjs"
@@ -32,15 +33,15 @@ concurrency:
 
 jobs:
   render:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Node >= 23.6 才默认直接跑 .ts(handler 的源文件是 TypeScript)
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
 
@@ -51,11 +52,11 @@ jobs:
 
       # 上一失败时 render.mjs 已 exit 1,这里不会执行 —— 线上保持上一版好图,
       # 而不是把限流红卡发布出去缓存几小时。这是整套设计里最重要的一步。
-      - uses: actions/configure-pages@v4
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist-cards
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
