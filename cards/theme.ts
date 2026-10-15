@@ -41,6 +41,7 @@ export const THEMES: Record<string, Theme> = {
     orange: "#9a6700",
     red: "#cf222e",
     purple: "#8250df",
+    art: ARTS.light,
   },
   dracula: {
     bg: "#282a36",

@@ -16,6 +16,8 @@ on:
     paths:
       - ".github/workflows/render.yml"
       - "cards/**"
+      - "assets/art/**"
+      - "tools/art.mjs"
       - "deno_index.ts"
       - "tools/render.mjs"
       - "render.config.json"

@@ -346,15 +346,17 @@ All cards support a `title` parameter for custom titles (except badge, which has
 
 ## 🌌 Illustrated background theme
 
-`starlight` is the only theme with an image: the card background yields to an illustration, with two dimming layers on top so the foreground text stays readable.
+`starlight` uses the night illustration; `light` uses a daylight illustration of the same character. Each has its own overlay settings for text readability.
 
-Swap the image with one command:
+Images live in `assets/art/`. Edit `assets/art/config.json` to configure each image and its `dim` / `dimLeft` overlays, then run:
 
 ```bash
-node tools/art.mjs /path/to/image.webp starlight   # regenerates cards/art.ts
+node tools/art.mjs     # regenerate both embedded backgrounds
+node tools/build.mjs  # update function artifacts
+node test/all.mjs
 ```
 
-`cards/art.ts` is **generated** — don't hand-edit it; a theme in `cards/theme.ts` claims an image with `art: ARTS.starlight`. Note this command **rewrites the whole file** and produces one image at a time — for a second illustrated theme, first consider whether it's worth those 36 KB, then manually add an `ARTS` entry.
+`cards/art.ts` is generated. Themes select their image with `art: ARTS.light` or `art: ARTS.starlight`.
 
 Three hard constraints, all learned the hard way:
 
@@ -375,22 +377,11 @@ Three hard constraints, all learned the hard way:
 
 Dimming is tuned via `ARTS`'s `dim` (full-cover) / `dimLeft` (extra dimming on the left, since titles and values live there); re-run `node tools/render.mjs` to see the result.
 
-### Why no illustration in light mode
+### Light-mode character background
 
-Because this image is a **nightscape**, and light-mode text is dark — dark text on a dark image is unreadable. Measured (at `stats` size, worst pixel, WCAG AA small-text requirement 4.5:1):
+The light theme uses a separately generated daylight illustration preserving the silver-blue hair, cyan eyes, star hairclip and blue jacket. The character sits to the right, with pale sky on the left for text. White overlays soften the background behind the data.
 
-| Fog density `dim` | Min text contrast | Verdict |
-|---|---|---|
-| 0.93 | 4.88:1 | pass, but the image is a faint tint — effectively no image |
-| 0.85 | 4.16:1 | fail |
-| 0.78 | 3.50:1 | fail |
-| 0.70 | 2.85:1 | fail |
-
-In other words: **if the image is visible, the text is unreadable; if the text is readable, the image is gone.** Trying darker text (`#1f3350`) buys some headroom, but the accent colors (cyan/green/orange/red) must also reach 4.5:1, forcing muddy grays like `#16484f` and `#5c3b14` — the card instantly looks bad.
-
-Brightening the image itself into "daylight pastel" was also tried: after `gain 1.6 / lift 0.42 / sat 0.45`, the darkest night sky still has 0.164 luminance and the minimum text contrast only reaches 2.60:1 — the dark parts of a nightscape can't be lifted; any more and the whole picture turns to mush.
-
-So the light variant sticks with the `light` theme. **Only a swap to an inherently light-toned image makes this path work.**
+Existing `*.light.svg` links automatically use the new background. Other solid-color themes and the standalone badge design remain unchanged.
 
 ## 🖼️ Composition example
 

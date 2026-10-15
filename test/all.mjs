@@ -207,7 +207,12 @@ console.log("插画背景 cards/art.ts");
     !art.includes(`fill="${THEMES.starlight.card}" stroke=`),
   );
 
-  for (const name of ["default", "catppuccin", "light"]) {
+  const light = skeleton("light");
+  check("light 内联独立的日光插画", light.includes('<image href="data:image/webp;base64,') && ARTS.light.src !== ARTS.starlight.src);
+  check("light 使用白色遮罩", light.includes('stop-color="#ffffff"') && light.includes('fill="#ffffff" fill-opacity='));
+  check("light 插画等比裁切且保留圆角", light.includes('preserveAspectRatio="xMidYMid slice"') && light.includes('clip-path="url(#'));
+
+  for (const name of ["default", "catppuccin"]) {
     check(`${name} 不含 <image>`, !skeleton(name).includes("<image"));
   }
 
