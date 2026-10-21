@@ -1,3 +1,16 @@
+<!-- fanxing-style:start -->
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://fanxing724.github.io/new-make/fanxing724/projects/new-make/cover.light.svg">
+  <img alt="new-make · 星轨制卡室" src="https://fanxing724.github.io/new-make/fanxing724/projects/new-make/cover.svg" width="100%">
+</picture>
+
+**每个想法，都该有自己的出场方式。**
+
+GitHub 上不只有提交和数字，也有每个项目各自的来由。这间制卡室生成主页统计与项目封面，把数据、署名和项目故事变成可以放进 README 的图片与文字。
+
+<sub>番星 / 星轨手记 · <a href="https://fanxing724.github.io/new-make/fanxing724/projects/style.html">风格样板</a> · <a href="https://fanxing724.github.io/">个人小站</a></sub>
+<!-- fanxing-style:end -->
+
 # GitHub Cards 🃏
 
 [English](./README.en.md) | 简体中文

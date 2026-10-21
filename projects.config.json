@@ -96,7 +96,7 @@
         "qwenpaw-plugin-dev": {
           "title": "Plugin Dev · 开工手册",
           "tagline": "少一点从头摸索，早一点把插件做出来。",
-          "story": "把 QwenPaw 插件开发所需的约定写成 Skill，让 AI 接手任务时有章可循。这是一份随实际开发过程持续整理的开工手册。",
+          "story": "这里维护一份供 AI 使用的 QwenPaw 插件开发手册。原版来自 QwenPaw 技能市场，本仓库在原版基础上做经宿主源码核实的事实修正，原始来源与修正记录保留在下方说明。",
           "category": "AI 开发手册",
           "accent": "#91b7d3",
           "motif": "journal"
