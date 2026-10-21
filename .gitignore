@@ -8,6 +8,9 @@ node_modules/
 # render.mjs 的产物:由 Actions 渲染、经 Pages artifact 发布,不走 git。
 # 提交它等于把"流水线会重建的东西"变成第二份真源,两边一旦漂移就没人知道该信谁。
 dist-cards/
+dist-projects/
+dist-projects.staging/
+dist-projects.staging-*/
 .test-cards/
 
 # test/all.mjs 自己写的临时配置(跑完会删;留个兜底,免得断言中途炸了就把垃圾带进提交)

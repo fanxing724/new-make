@@ -363,6 +363,9 @@ console.log("预渲染 tools/render.mjs (假上游)");
   unlinkSync(cfgPath);
 }
 
+const { projectCheckCount } = await import("./projects.mjs");
+pass += projectCheckCount;
+
 console.log(
   `\n${pass} 通过 / ${failed.length} 失败${skipped ? ` / ${skipped} skip` : ""}`,
 );

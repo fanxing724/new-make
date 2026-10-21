@@ -20,6 +20,9 @@ on:
       - "tools/art.mjs"
       - "deno_index.ts"
       - "tools/render.mjs"
+      - "tools/projects.mjs"
+      - "tools/styleguide.mjs"
+      - "projects.config.json"
       - "render.config.json"
   workflow_dispatch:
 

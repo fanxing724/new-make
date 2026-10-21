@@ -1,6 +1,7 @@
 {
   "usernames": ["fanxing724"],
   "output": "dist-cards",
+  "projects": { "config": "projects.config.json" },
   "cards": {
     "stats": { "theme": "starlight", "show_icons": "true" },
     "stats.light": { "theme": "light", "show_icons": "true" },

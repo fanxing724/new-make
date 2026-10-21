@@ -22,6 +22,78 @@ GitHub Profile 动态 SVG 卡片生成器。
 - 🔥 **连续活跃卡片** — 当前/最长连续天数 + 90 天事件热力图
 - 🏅 **徽章卡片** — shields.io 风格的单行小徽章,适合 README 顶部签名栏
 - 🎨 **7 种主题** — default、light、dracula、nord、monokai、catppuccin，其中 `light` 和 `starlight` 带角色插画背景
+- 🪐 **项目专属封面** — 自动发现公开非 Fork 仓库，分别生成明暗两套封面、介绍草稿与 README 引用；每个项目可配置署名、故事、配色和图形
+
+## 🪐 项目制卡室
+
+除了个人统计，new-make 也可以给每个项目生成自己的 README 开场：网络工具画路由、陪伴插件画手记、监控面板画心跳。同一个作者的署名，配上各自的故事和视觉主题。
+
+番星的配置已为 **18 个公开非 Fork 项目**编写首版文案；完整名单见 [`projects.config.json`](projects.config.json)。这是配置时的清单，后续公开项目会被流水线自动发现。未单独配置的项目使用仓库名称、真实描述和稳定的默认图形，不自动编造功能或项目故事。
+
+生成后，Pages 的 `/projects/` 是预览画廊，可以切换明暗、搜索项目、复制引用。每个项目包含：
+
+```text
+fanxing724/projects/speedlens/
+├─ cover.svg          深色封面
+├─ cover.light.svg    浅色封面
+├─ embed.md           可直接复制的图片引用
+└─ intro.md           封面 + 标语 + 项目介绍草稿
+projects/
+├─ index.html         全部项目的预览与复制入口
+└─ manifest.json      本轮实际生成的项目清单
+```
+
+在对应项目 README 顶部引用即可：
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://fanxing724.github.io/new-make/fanxing724/projects/speedlens/cover.light.svg">
+  <img alt="SpeedLens · 网络透镜" src="https://fanxing724.github.io/new-make/fanxing724/projects/speedlens/cover.svg" width="100%">
+</picture>
+```
+
+以上链接需要新版本流水线成功部署后才会存在。现有个人统计卡的链接不变。脚本只生成资产与草稿，不会批量改写其他仓库的 README，也不会提交或发布代码。
+
+### 调整每个项目的个性
+
+在 `projects.config.json` 的 `owners.fanxing724.projects` 中编辑对应项目，例如：
+
+```json
+"speedlens": {
+  "title": "SpeedLens · 网络透镜",
+  "tagline": "换了节点，也想看清网络走向。",
+  "story": "这里写项目的来由与使用场景。",
+  "category": "网络观察",
+  "accent": "#db925c",
+  "motif": "network"
+}
+```
+
+`motif` 支持 `orbit`（星轨）、`network`（路由）、`pulse`（心跳）、`terminal`（终端）、`journal`（手记）、`archive`（归档）、`studio`（画板）、`bridge`（桥接）。标题与短句放在 SVG 里，较长的故事保留为可编辑文字。SVG 不加载外部图片、字体或脚本。
+
+番星的固定风格是 **银蓝角色＋四角星＋星轨＋「番星 / 星轨手记」署名**。作者配置 `portrait: true` 时，封面内联原有日光／星空角色插画，项目主题图形作为角色旁的小徽记。设置单个项目 `portrait: false` 可使用纯矢量封面；其他作者默认使用纯矢量，不自动套用番星角色。
+
+完整设计约定见 [`docs/FANXING_STYLE.md`](docs/FANXING_STYLE.md)。生成后的 `fanxing724/projects/style.html` 可以切换明暗并对比项目效果。
+
+### 本地生成与自动更新
+
+```bash
+# 仅生成项目资产，不拉个人统计或逐仓库语言明细
+node tools/projects.mjs
+# 打开 dist-projects/projects/index.html 预览
+
+# 与个人统计卡一起生成，供现有 Pages 流水线发布
+node tools/render.mjs
+
+# 离线检查自动发现、明暗、转义、私有/Fork 过滤、失败保留旧产物
+node test/projects.mjs
+```
+
+本地网络如依赖系统代理，可在 Node 24 使用 `node --use-env-proxy tools/projects.mjs`。匿名 GitHub API 仍受额度限制；失败会保留上一版产物，不使用伪造数据补齐。
+
+`render.config.json` 的 `projects` 字段接入项目配置。现有 Actions 继续使用临时 `GITHUB_TOKEN`，定时渲染统计与项目资产后一起发布；任一部分失败，整批不发布。公开仓库列表复用数据层缓存，每个项目不会再单独请求 GitHub API。Fork 不自动纳入署名封面，私有项目也不会公开。
+
+换一个 Pages 地址时同步修改项目配置的 `baseUrl`；为其他账号生成时，在 `render.config.json` 的 `usernames` 中添加账号，并在项目配置的 `owners` 下设置对应署名。不配置署名时默认使用 GitHub 用户名。
 
 ## 🥇 主路线：GitHub Actions 预渲染
 

@@ -102,6 +102,9 @@ globalThis.fetch = async (input) => {
     });
   }
   const p = u.pathname;
+  if (process.env.FAKE_MODE === "reposfail" && p === `/users/${LOGIN}/repos`) {
+    return json({ message: "upstream failed" }, 502);
+  }
   if (p === `/users/${LOGIN}`) return json(USER);
   if (p === `/users/${LOGIN}/repos`) return json(REPOS);
   if (p === `/users/${LOGIN}/events`) return json(EVENTS);

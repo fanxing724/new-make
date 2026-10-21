@@ -6,6 +6,16 @@ A dynamic SVG card generator for your GitHub Profile README.
 
 Bring your GitHub profile README to life! Deploy the service, reference the image URLs in your README, and the cards update themselves.
 
+## Project covers
+
+The static renderer also discovers public, non-fork repositories and creates a dark/light SVG cover, a README image snippet, and an editable introduction for each project. Configure author names, taglines, stories, colors, and one of eight vector illustrations in [`projects.config.json`](projects.config.json). New repositories get a stable default using their actual GitHub description.
+
+Run `node tools/projects.mjs` to preview project assets in `dist-projects/projects/index.html`, or `node tools/render.mjs` to generate them together with the existing profile cards. After a successful Pages deployment, the gallery is at `/projects/` and covers are at `/<username>/projects/<repo>/cover.svg` and `cover.light.svg`. Each project also includes `embed.md` and `intro.md`.
+
+Fanxing's opt-in `portrait: true` author setting reuses the existing silver-blue character in day/night covers, with orbit lines and a small project illustration. Other authors use vector covers by default. The generated `/<username>/projects/style.html` previews the identity; see [the style guide](docs/FANXING_STYLE.md).
+
+The hourly Actions workflow publishes both sets together and keeps the previous deployment on failure. Private repositories and forks are excluded. The generator does not edit any repository's README. Run `node test/projects.mjs` for the offline regression checks. See the [Chinese guide](README.md#-项目制卡室) for configuration and embedding examples.
+
 Two shapes, one data layer:
 
 | Shape | Who runs it | Best for |

@@ -27,6 +27,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { handler } from "../deno_index.ts";
+import { generateProjectAssets, readProjectConfig } from "./projects.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // 与 test/all.mjs 同源:错误卡片由 common.ts 统一加这个前缀
@@ -129,6 +130,20 @@ for (const username of cfg.usernames) {
   }
 }
 
+// 与主页统计一起成功后才发布；项目列表失败也不能冲掉线上已有的封面。
+let projectCount = 0;
+if (cfg.projects) {
+  try {
+    const projectConfig = readProjectConfig(resolve(ROOT, cfg.projects.config || "projects.config.json"));
+    const result = await generateProjectAssets({ outDir: STAGE, usernames: cfg.usernames, config: projectConfig });
+    items.push(...result.items);
+    projectCount = result.projects.length;
+    console.log(`  ok   ${projectCount} 个项目的封面、介绍和引用代码`);
+  } catch (e) {
+    failures.push(`项目封面: ${e.message}`);
+  }
+}
+
 const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
 if (failures.length) {
@@ -148,15 +163,16 @@ writeFileSync(
 writeFileSync(
   resolve(STAGE, "index.html"),
   `<!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GitHub 卡片 · 预渲染产物</title>
 <style>body{background:#0d1117;color:#8b949e;font:14px/1.6 system-ui,sans-serif;margin:2rem;max-width:52rem}
 h1{color:#f0f6fc;font-size:1.1rem}code{background:#161b22;padding:.15rem .4rem;border-radius:4px;color:#58a6ff}
 figure{margin:1.5rem 0}figcaption{font-size:.85rem;margin-top:.4rem}</style>
 <h1>GitHub 卡片 · 预渲染产物</h1>
-<p>上次成功渲染 <code>${generatedAt}</code> · ${items.length} 张 · 耗时 ${seconds}s</p>
+<p>上次成功渲染 <code>${generatedAt}</code> · ${items.filter(i => i.path.endsWith(".svg")).length} 张 · 耗时 ${seconds}s</p>
+${projectCount ? `<p><a style="color:#e9bb8f" href="projects/">查看 ${projectCount} 个项目的专属封面、故事与 README 引用 →</a></p>` : ""}
 <p>刷新这个页面不会重新出网 —— 图是 Actions 定时渲染后作为 Pages 产物发布的,要新的就等下次 cron 或手动跑一次 workflow。</p>
-${items
+${items.filter(i => i.path.endsWith(".svg"))
   .map(
     (i) =>
       `<figure><img src="${i.path}" width="400" alt="${i.path}"><figcaption><code>/${i.path}</code> · ${(i.bytes / 1024).toFixed(1)} KB</figcaption></figure>`,
@@ -168,5 +184,5 @@ ${items
 rmSync(OUT, { recursive: true, force: true });
 renameSync(STAGE, OUT);
 console.log(
-  `\n${items.length} 张 → ${cfg.output || "dist-cards"}/ (耗时 ${seconds}s)`,
+  `\n${items.filter(i => i.path.endsWith(".svg")).length} 张 SVG / ${items.length} 个文件 → ${cfg.output || "dist-cards"}/ (耗时 ${seconds}s)`,
 );
