@@ -29,7 +29,7 @@
           "accent": "#d5a36f",
           "motif": "archive"
         },
-        "starbridge": {
+        "STARBRIDGE": {
           "title": "StarBridge · 公开下载桥",
           "tagline": "把公开资源接到一座更清楚的桥上。",
           "story": "公开下载入口需要清晰的来源、边界与限流规则。StarBridge 转发公开 Release、软件与驱动直链，并把每个 IP 与全站限制写进服务本身。",
