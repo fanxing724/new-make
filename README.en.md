@@ -1,3 +1,16 @@
+<!-- fanxing-style:start -->
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://fanxing724.github.io/new-make/fanxing724/projects/new-make/cover.light.svg">
+  <img alt="new-make · Fanxing's orbit card studio" src="https://fanxing724.github.io/new-make/fanxing724/projects/new-make/cover.svg" width="100%">
+</picture>
+
+**Every idea deserves its own way to enter the room.**
+
+GitHub is more than commits and numbers. This card studio turns profile data, project stories, and a personal signature into README-ready images and text.
+
+<sub>Fanxing / Orbit Notes · <a href="https://fanxing724.github.io/new-make/fanxing724/projects/style.html">style sample</a> · <a href="https://fanxing724.github.io/">personal site</a></sub>
+<!-- fanxing-style:end -->
+
 # GitHub Cards 🃏
 
 English | [简体中文](./README.md)
@@ -9,6 +22,8 @@ Bring your GitHub profile README to life! Deploy the service, reference the imag
 ## Project covers
 
 The static renderer also discovers public, non-fork repositories and creates a dark/light SVG cover, a README image snippet, and an editable introduction for each project. Configure author names, taglines, stories, colors, and one of eight vector illustrations in [`projects.config.json`](projects.config.json). New repositories get a stable default using their actual GitHub description.
+
+The Fanxing profile uses a silver-blue character, four-point stars, orbit lines, and the signature `Fanxing / Orbit Notes`. Each project keeps its own accent color, story, and motif — a network lens for diagnostics, a pulse line for monitoring, a journal for companion work, or a terminal for online compilers.
 
 Run `node tools/projects.mjs` to preview project assets in `dist-projects/projects/index.html`, or `node tools/render.mjs` to generate them together with the existing profile cards. After a successful Pages deployment, the gallery is at `/projects/` and covers are at `/<username>/projects/<repo>/cover.svg` and `cover.light.svg`. Each project also includes `embed.md` and `intro.md`.
 

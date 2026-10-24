@@ -13,6 +13,46 @@
           "accent": "#db925c",
           "motif": "network"
         },
+        "codex-termux": {
+          "title": "Codex Termux · 移动终端工具箱",
+          "tagline": "把开发工具带进终端，也把恢复路径留在手边。",
+          "story": "在 Android 与 Termux 上使用 Codex CLI，不应该先被复杂环境挡住。这个工具箱把安装、更新、配置、体检与恢复拆成清楚的入口，具体实机验收状态以仓库记录为准。",
+          "category": "移动开发工具",
+          "accent": "#86b8d6",
+          "motif": "terminal"
+        },
+        "jixing-book": {
+          "title": "积星簿 · 自动签到手记",
+          "tagline": "把每天的一次签到，留成一份可追溯的手记。",
+          "story": "把重复的签到交给 GitHub Actions，同时把登录、会话失效和短信验证的边界写清楚。这里记录脚本当前实际执行的范围，不把未验证的续期能力写成承诺。",
+          "category": "自动化手记",
+          "accent": "#d5a36f",
+          "motif": "archive"
+        },
+        "starbridge": {
+          "title": "StarBridge · 公开下载桥",
+          "tagline": "把公开资源接到一座更清楚的桥上。",
+          "story": "公开下载入口需要清晰的来源、边界与限流规则。StarBridge 转发公开 Release、软件与驱动直链，并把每个 IP 与全站限制写进服务本身。",
+          "category": "公开资源入口",
+          "accent": "#7fb7c9",
+          "motif": "bridge"
+        },
+        "starplay": {
+          "title": "星游调度 · 游戏模式助手",
+          "tagline": "把一次授权，变成手机自己的调度。",
+          "story": "面向荣耀 X50 的游戏模式探索，目标是首次授权后在手机独立运行，不依赖常驻 ADB。候选设置写入成功不等于游戏性能改善，真机验证状态始终单独记录。",
+          "category": "Android 设备探索",
+          "accent": "#8ca9d6",
+          "motif": "pulse"
+        },
+        "ZError": {
+          "title": "ZError · AI 题库管理",
+          "tagline": "把题库、模型和本地使用，放进一个清楚的入口。",
+          "story": "ZError 面向 OCS 网课助手，围绕本地 AI 题库、供应商与模型配置，以及题库管理与缓存提供一个 Linux 端入口。具体平台支持与当前完成度，以仓库中的实现和说明为准。",
+          "category": "本地 AI 工具",
+          "accent": "#b59ad8",
+          "motif": "archive"
+        },
         "qwenpaw-companion-core": {
           "title": "Companion Core · 陪伴核心",
           "tagline": "让 AI 记住的不只是答案，还有一起度过的日常。",
