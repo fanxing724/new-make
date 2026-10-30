@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 
 import { handler } from "../deno_index.ts";
 import { generateProjectAssets, readProjectConfig } from "./projects.mjs";
+import { copyFrozenProjectAssets } from "./frozen-projects.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // 与 test/all.mjs 同源:错误卡片由 common.ts 统一加这个前缀
@@ -134,11 +135,12 @@ for (const username of cfg.usernames) {
 let projectCount = 0;
 if (cfg.projects) {
   try {
-    const projectConfig = readProjectConfig(resolve(ROOT, cfg.projects.config || "projects.config.json"));
-    const result = await generateProjectAssets({ outDir: STAGE, usernames: cfg.usernames, config: projectConfig });
+    const result = cfg.projects.assets
+      ? copyFrozenProjectAssets({ sourceDir: resolve(ROOT, cfg.projects.assets), outDir: STAGE })
+      : await generateProjectAssets({ outDir: STAGE, usernames: cfg.usernames, config: readProjectConfig(resolve(ROOT, cfg.projects.config || "projects.config.json")) });
     items.push(...result.items);
     projectCount = result.projects.length;
-    console.log(`  ok   ${projectCount} 个项目的封面、介绍和引用代码`);
+    console.log(`  ok   ${projectCount} 个项目的封面、介绍和引用代码${cfg.projects.assets ? "（复用固定资产，不重新生成）" : ""}`);
   } catch (e) {
     failures.push(`项目封面: ${e.message}`);
   }

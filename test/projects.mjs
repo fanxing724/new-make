@@ -7,6 +7,7 @@ import { displayWidth } from "../cards/common.ts";
 import { setGitHubToken } from "../cards/github.ts";
 import { PROJECT_MOTIFS, projectLines, renderProjectCover } from "../cards/project.ts";
 import { generateProjectAssets, readProjectConfig } from "../tools/projects.mjs";
+import { copyFrozenProjectAssets } from "../tools/frozen-projects.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const temp = mkdtempSync(join(root, ".project-test-"));
@@ -114,6 +115,34 @@ try {
     assert.throws(() => readProjectConfig(invalid));
     assert.throws(() => execFileSync(process.execPath, [join(root, "tools/projects.mjs"), "--output", "cards"], { stdio: "pipe" }));
     assert.ok(existsSync(join(root, "cards/project.ts")));
+  });
+  check("固定封面离线复制，连续发布保持封面与生成时间不变", () => {
+    const sourceDir = join(root, "project-assets");
+    const target = join(temp, "frozen");
+    const savedFetch = globalThis.fetch;
+    globalThis.fetch = () => { throw new Error("固定封面不应访问网络"); };
+    try {
+      const first = copyFrozenProjectAssets({ sourceDir, outDir: target });
+      const second = copyFrozenProjectAssets({ sourceDir, outDir: target });
+      assert.deepEqual(first.items, second.items);
+      assert.ok(first.projects.length > 0);
+      for (const item of first.items) {
+        assert.deepEqual(readFileSync(join(target, item.path)), readFileSync(join(sourceDir, item.path)));
+      }
+      const broken = join(temp, "broken");
+      assert.throws(() => copyFrozenProjectAssets({ sourceDir: broken, outDir: join(temp, "broken-output") }));
+      assert.equal(existsSync(join(temp, "broken-output")), false);
+    } finally { globalThis.fetch = savedFetch; }
+  });
+  check("定时链路只复制固定封面，仓库列表 API 失败不再触发重画", () => {
+    const config = { usernames: ["fanxing724"], output: relative(root, out), cards: { activity: {} }, projects: { assets: "project-assets" } };
+    writeFileSync(cfg, JSON.stringify(config));
+    run("reposfail");
+    const frozenStatus = readFileSync(join(out, "status.json"), "utf8");
+    assert.deepEqual(readFileSync(join(out, "projects/manifest.json")), readFileSync(join(root, "project-assets/projects/manifest.json")));
+    writeFileSync(cfg, JSON.stringify({ ...config, projects: { assets: relative(root, join(temp, "missing")) } }));
+    assert.throws(() => run("normal"));
+    assert.equal(readFileSync(join(out, "status.json"), "utf8"), frozenStatus);
   });
   console.log(`${checks} 项项目封面检查通过（假上游，未调用真实 GitHub）`);
 } finally {

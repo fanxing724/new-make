@@ -6,7 +6,7 @@ node_modules/
 *.log
 
 # render.mjs 的产物:由 Actions 渲染、经 Pages artifact 发布,不走 git。
-# 提交它等于把"流水线会重建的东西"变成第二份真源,两边一旦漂移就没人知道该信谁。
+# project-assets/ 则是人工确认后固定保存的项目资产，需要入库，定时任务只复制。
 dist-cards/
 dist-projects/
 dist-projects.staging/

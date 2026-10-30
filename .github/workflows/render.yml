@@ -21,6 +21,8 @@ on:
       - "deno_index.ts"
       - "tools/render.mjs"
       - "tools/projects.mjs"
+      - "tools/frozen-projects.mjs"
+      - "project-assets/**"
       - "tools/styleguide.mjs"
       - "projects.config.json"
       - "render.config.json"

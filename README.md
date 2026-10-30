@@ -41,7 +41,7 @@ GitHub Profile 动态 SVG 卡片生成器。
 
 除了个人统计，new-make 也可以给每个项目生成自己的 README 开场：网络工具画路由、陪伴插件画手记、监控面板画心跳。同一个作者的署名，配上各自的故事和视觉主题。
 
-番星的配置已为 **18 个公开非 Fork 项目**编写首版文案；完整名单见 [`projects.config.json`](projects.config.json)。这是配置时的清单，后续公开项目会被流水线自动发现。未单独配置的项目使用仓库名称、真实描述和稳定的默认图形，不自动编造功能或项目故事。
+番星的配置已为 **18 个公开非 Fork 项目**编写首版文案；完整名单见 [`projects.config.json`](projects.config.json)。这是配置时的清单；当前固定资产已保留 23 个项目，新增项目需手动生成后提交。未单独配置的项目使用仓库名称、真实描述和稳定的默认图形，不自动编造功能或项目故事。
 
 生成后，Pages 的 `/projects/` 是预览画廊，可以切换明暗、搜索项目、复制引用。每个项目包含：
 
@@ -88,14 +88,17 @@ projects/
 
 完整设计约定见 [`docs/FANXING_STYLE.md`](docs/FANXING_STYLE.md)。生成后的 `fanxing724/projects/style.html` 可以切换明暗并对比项目效果。
 
-### 本地生成与自动更新
+### 封面只生成一次，统计定时更新
 
 ```bash
 # 仅生成项目资产，不拉个人统计或逐仓库语言明细
 node tools/projects.mjs
 # 打开 dist-projects/projects/index.html 预览
 
-# 与个人统计卡一起生成，供现有 Pages 流水线发布
+# 只在新增项目、调整文案或更换风格时手动执行；提交后才更新线上封面
+node tools/projects.mjs --output project-assets
+
+# 定时更新个人统计卡；项目封面从 project-assets 原样复制，不重画
 node tools/render.mjs
 
 # 离线检查自动发现、明暗、转义、私有/Fork 过滤、失败保留旧产物
@@ -104,7 +107,9 @@ node test/projects.mjs
 
 本地网络如依赖系统代理，可在 Node 24 使用 `node --use-env-proxy tools/projects.mjs`。匿名 GitHub API 仍受额度限制；失败会保留上一版产物，不使用伪造数据补齐。
 
-`render.config.json` 的 `projects` 字段接入项目配置。现有 Actions 继续使用临时 `GITHUB_TOKEN`，定时渲染统计与项目资产后一起发布；任一部分失败，整批不发布。公开仓库列表复用数据层缓存，每个项目不会再单独请求 GitHub API。Fork 不自动纳入署名封面，私有项目也不会公开。
+`render.config.json` 的 `projects.assets` 指向已入库的 `project-assets/`。项目封面、画廊、介绍与引用固定保存，小时任务只复制这些文件，不调用项目封面生成器、不刷新封面的生成时间。统计卡仍使用 Actions 临时 `GITHUB_TOKEN` 定时更新，发布时带上固定封面，避免整目录替换导致旧封面丢失；任何必需文件缺失时仍阻止发布。
+
+新增项目或主动换封面时，修改 `projects.config.json`，手动运行上面的生成命令，检查后提交 `project-assets/`。仅修改配置不会自动重画。手动生成仍会过滤 Fork 和私有项目；不再按小时自动发现新项目。
 
 换一个 Pages 地址时同步修改项目配置的 `baseUrl`；为其他账号生成时，在 `render.config.json` 的 `usernames` 中添加账号，并在项目配置的 `owners` 下设置对应署名。不配置署名时默认使用 GitHub 用户名。
 
